@@ -15,7 +15,7 @@ export const Hero: React.FC<HeroProps> = ({ lang, onBuyerClick, onSupplierClick 
     en: {
       badge: "Coming soon in Dubai",
       headline: "Get the best price for construction materials",
-      subtext: "The digital standard for construction tendering in the UAE. Connect with verified suppliers and streamline your procurement in minutes.",
+      subtext: "The digital standard for construction bidding in the UAE. Connect with verified suppliers and streamline your procurement in minutes.",
       primaryCTA: "Post Request",
       secondaryCTA: "Explore Platform",
       preview: {

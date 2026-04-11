@@ -18,7 +18,7 @@ export const FAQPage: React.FC<FAQPageProps> = ({ lang }) => {
       faqs: [
         {
           q: "What is Bidflow?",
-          a: "Bidflow is a high-speed digital platform that automates the tendering and bidding process. It bridges the gap between organizations needing services and suppliers capable of providing them."
+          a: "Bidflow is a high-speed digital platform that automates the bidding process. It bridges the gap between organizations needing services and suppliers capable of providing them."
         },
         {
           q: "How does the bidding work?",
