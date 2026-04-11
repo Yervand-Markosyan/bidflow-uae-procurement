@@ -205,15 +205,23 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
       } else if (doc.msExitFullscreen) {
         doc.msExitFullscreen();
       }
+      
+      // Unlock orientation when exiting
+      if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+        try { window.screen.orientation.unlock(); } catch (err) { console.log(err); }
+      }
     } else {
-      if (container.requestFullscreen) {
-        container.requestFullscreen().catch(() => {});
-      } else if (container.webkitRequestFullscreen) {
-        container.webkitRequestFullscreen();
-      } else if (container.mozRequestFullScreen) {
-        container.mozRequestFullScreen();
-      } else if (container.msRequestFullscreen) {
-        container.msRequestFullscreen();
+      const requestMethod = container.requestFullscreen || container.webkitRequestFullscreen || container.mozRequestFullScreen || container.msRequestFullscreen;
+      
+      if (requestMethod) {
+        requestMethod.call(container).then(() => {
+          // Lock to landscape on mobile when entering fullscreen
+          if (window.screen && window.screen.orientation && (window.screen.orientation as any).lock) {
+            (window.screen.orientation as any).lock('landscape').catch((err: any) => {
+              console.log("Orientation lock failed:", err);
+            });
+          }
+        }).catch(() => {});
       }
     }
   };
@@ -225,11 +233,25 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
   };
 
   const handleContainerClick = (e: React.MouseEvent) => {
-    // If clicking a button, don't toggle play
+    // If clicking a button, don't do anything here
     if ((e.target as HTMLElement).closest('button')) return;
     
-    handleInteraction();
-    togglePlay(e);
+    // On mobile/touch, we want to toggle controls visibility without pausing
+    // On desktop, we can keep the same behavior or just toggle controls
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    if (isTouch) {
+      if (showControls) {
+        setShowControls(false);
+        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      } else {
+        handleInteraction();
+      }
+    } else {
+      // Desktop behavior: show controls and toggle play
+      handleInteraction();
+      togglePlay(e);
+    }
   };
 
   return (
