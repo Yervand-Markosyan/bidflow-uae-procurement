@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: events
+    // Fields:
+    //   - event_name: string (required)
+    //   - timestamp: string (required, ISO 8601)
+    //   - firestore_timestamp: timestamp (required)
+    //   - session_id: string (required)
+    //   - properties: map (optional)
+    //
+    // Collection: users
+    // Fields:
+    //   - email: string (required, email format)
+    //   - role: string (required, 'buyer' or 'supplier')
+    //   - timestamp: string (required, ISO 8601)
+    //   - firestore_timestamp: timestamp (required)
+    //   - session_id: string (required)
+    //   - [other optional fields based on role]
+    //
+    // Collection: stats
+    // Document: counters
+    // Fields:
+    //   - buyers: number
+    //   - suppliers: number
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "Yer.Markosyan@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /events/{eventId} {
+      allow create: if 
+        request.resource.data.keys().hasAll(['event_name', 'timestamp', 'session_id']) &&
+        request.resource.data.event_name is string &&
+        request.resource.data.event_name.size() < 100 &&
+        isValidDateString(request.resource.data.timestamp) &&
+        request.resource.data.session_id is string;
+      allow read: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow create: if 
+        request.resource.data.keys().hasAll(['email', 'role', 'timestamp']) &&
+        isValidEmail(request.resource.data.email) &&
+        request.resource.data.role in ['buyer', 'supplier'] &&
+        isValidDateString(request.resource.data.timestamp) &&
+        request.resource.data.email.size() < 100;
+      allow read: if isAdmin();
+    }
+
+    match /stats/counters {
+      allow read: if true;
+      allow update: if 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['buyers', 'suppliers']) &&
+        (request.resource.data.buyers >= resource.data.buyers) &&
+        (request.resource.data.suppliers >= resource.data.suppliers);
+      allow create: if 
+        isAdmin() || 
+        (request.resource.data.buyers == 142 && request.resource.data.suppliers == 38);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
