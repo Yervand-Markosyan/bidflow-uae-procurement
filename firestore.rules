@@ -62,7 +62,7 @@ service cloud.firestore {
         request.resource.data.keys().hasAll(['event_name', 'timestamp', 'session_id']) &&
         request.resource.data.event_name is string &&
         request.resource.data.event_name.size() < 100 &&
-        isValidDateString(request.resource.data.timestamp) &&
+        request.resource.data.timestamp is string &&
         request.resource.data.session_id is string;
       allow read: if isAdmin();
     }
@@ -72,9 +72,10 @@ service cloud.firestore {
         request.resource.data.keys().hasAll(['email', 'role', 'timestamp']) &&
         isValidEmail(request.resource.data.email) &&
         request.resource.data.role in ['buyer', 'supplier'] &&
-        isValidDateString(request.resource.data.timestamp) &&
+        request.resource.data.timestamp is string &&
         request.resource.data.email.size() < 100;
-      allow read: if isAdmin();
+      // Allow public read for email uniqueness check
+      allow read: if isAdmin() || (request.query.limit != null && request.query.limit <= 10);
     }
 
     match /stats/counters {

@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, getDocFromServer, doc, onSnapshot, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocFromServer, doc, onSnapshot, updateDoc, increment, setDoc, getDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
 export enum OperationType {
@@ -160,6 +160,15 @@ if (typeof window !== 'undefined') {
 
 export const saveUserRegistration = async (userData: any) => {
   try {
+    // Check if email already exists
+    const q = query(collection(db, 'users'), where('email', '==', userData.email), limit(1));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      console.log('User with this email already exists');
+      return { success: false, alreadyExists: true };
+    }
+
     const utms = getUTMParams();
     const data = cleanData({
       ...userData,
@@ -187,8 +196,10 @@ export const saveUserRegistration = async (userData: any) => {
     }
 
     console.log('User registration saved:', data);
+    return { success: true };
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'users');
+    return { success: false, error };
   }
 };
 

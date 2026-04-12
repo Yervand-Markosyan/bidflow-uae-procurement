@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Page, Language } from '../types';
+import { saveUserRegistration } from '../services/trackingService';
 
 interface RegistrationFormProps {
   onSubmit: (email: string, role: 'buyer' | 'seller') => void;
@@ -76,7 +77,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, on
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isEmailValid = emailRegex.test(email);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAttemptedSubmit(true);
     setIsAlreadyRegistered(false);
@@ -101,6 +102,17 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, on
 
     if (window.bidflow) {
       window.bidflow.trackEarlyAccess(email, role === 'buyer' ? 'Buyer' : 'Supplier');
+    }
+
+    const result = await saveUserRegistration({
+      email: normalizedEmail,
+      role: role === 'buyer' ? 'buyer' : 'supplier',
+      source: 'early_access'
+    });
+
+    if (result.alreadyExists) {
+      setIsAlreadyRegistered(true);
+      return;
     }
 
     onSubmit(email, role);

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Truck, CheckCircle2, Gift } from 'lucide-react';
 import { Language } from '../types';
-import { trackEvent } from '../services/trackingService';
+import { trackEvent, saveUserRegistration } from '../services/trackingService';
 
 interface SupplierDemoProps {
   lang: Language;
@@ -117,8 +117,9 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
 
   const [materialError, setMaterialError] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAlreadyRegistered(false);
     
     if (step === 1 && selectedMaterialNames.length === 0) {
       setMaterialError(true);
@@ -157,11 +158,6 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       
       setStep(step + 1);
     } else {
-      if (formData.email === 'info@bidflow.ae') {
-        setAlreadyRegistered(true);
-        return;
-      }
-      
       if (window.bidflow) {
         window.bidflow.trackSupplier(5, {
           email: formData.email,
@@ -169,6 +165,20 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
           location: formData.city,
           supplier_materials: formData.materials
         });
+      }
+
+      const result = await saveUserRegistration({
+        email: formData.email.toLowerCase(),
+        role: 'supplier',
+        company_name: formData.companyName,
+        location: formData.city,
+        supplier_materials: formData.materials,
+        source: 'supplier_demo'
+      });
+
+      if (result.alreadyExists) {
+        setAlreadyRegistered(true);
+        return;
       }
       
       onSubmit(formData);

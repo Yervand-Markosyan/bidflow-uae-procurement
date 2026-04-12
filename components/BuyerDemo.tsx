@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, CheckCircle2, Gift, ClipboardList } from 'lucide-react';
 import { Language } from '../types';
-import { trackEvent } from '../services/trackingService';
+import { trackEvent, saveUserRegistration } from '../services/trackingService';
 
 interface BuyerDemoProps {
   lang: Language;
@@ -141,12 +141,9 @@ export const BuyerDemo: React.FC<BuyerDemoProps> = ({ lang, onSubmit }) => {
   };
   const handleBack = () => setStep(s => s - 1);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.email === 'info@bidflow.ae') {
-      setAlreadyRegistered(true);
-      return;
-    }
+    setAlreadyRegistered(false);
     
     if (window.bidflow) {
       window.bidflow.trackBuyer(5, {
@@ -156,6 +153,21 @@ export const BuyerDemo: React.FC<BuyerDemoProps> = ({ lang, onSubmit }) => {
         quantity: `${formData.quantity} ${formData.unit}`,
         location: formData.location
       });
+    }
+
+    const result = await saveUserRegistration({
+      email: formData.email.toLowerCase(),
+      role: 'buyer',
+      company_name: formData.companyName,
+      material_category: formData.category || formData.otherCategory,
+      quantity: `${formData.quantity} ${formData.unit}`,
+      location: formData.location,
+      source: 'buyer_demo'
+    });
+
+    if (result.alreadyExists) {
+      setAlreadyRegistered(true);
+      return;
     }
     
     onSubmit(formData);

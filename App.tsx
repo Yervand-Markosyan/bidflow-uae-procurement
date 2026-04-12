@@ -64,19 +64,19 @@ const App: React.FC = () => {
     const eventName = data.role === 'buyer' ? 'material_request_submitted' : 'supplier_signup_submitted';
     
     await trackEvent(eventName, { ...data, source: 'final_cta' });
-    await saveUserRegistration({ ...data, source: 'final_cta' });
+    // saveUserRegistration is now handled inside FinalCTA component to check for uniqueness
   };
 
   const handleBuyerDemoSubmit = async (data: any) => {
     console.log('Buyer Demo Submit:', data);
     await trackEvent('material_request_submitted', { ...data, source: 'buyer_demo' });
-    await saveUserRegistration({ ...data, role: 'buyer', source: 'buyer_demo' });
+    // saveUserRegistration is now handled inside BuyerDemo component
   };
 
   const handleSupplierDemoSubmit = async (data: any) => {
     console.log('Supplier Demo Submit:', data);
     await trackEvent('supplier_signup_submitted', { ...data, source: 'supplier_demo' });
-    await saveUserRegistration({ ...data, role: 'supplier', source: 'supplier_demo' });
+    // saveUserRegistration is now handled inside SupplierDemo component
   };
 
   return (

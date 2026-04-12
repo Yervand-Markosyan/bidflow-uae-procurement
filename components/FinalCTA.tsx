@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Gift, Rocket } from 'lucide-react';
 import { Language } from '../types';
-import { trackEvent } from '../services/trackingService';
+import { trackEvent, saveUserRegistration } from '../services/trackingService';
 
 interface FinalCTAProps {
   lang: Language;
@@ -75,8 +75,9 @@ export const FinalCTA: React.FC<FinalCTAProps> = ({ lang, onSubmit }) => {
     return email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAlreadyRegistered(false);
     if (role) startTracking(role);
     const hasRoleError = !role;
     const hasEmailError = !validateEmail(email);
@@ -86,7 +87,13 @@ export const FinalCTA: React.FC<FinalCTAProps> = ({ lang, onSubmit }) => {
       return;
     }
 
-    if (email === 'info@bidflow.ae') {
+    const result = await saveUserRegistration({
+      email: email.toLowerCase(),
+      role: role,
+      source: 'final_cta'
+    });
+
+    if (result.alreadyExists) {
       setAlreadyRegistered(true);
       return;
     }
