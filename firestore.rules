@@ -80,12 +80,19 @@ service cloud.firestore {
     match /stats/counters {
       allow read: if true;
       allow update: if 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['buyers', 'suppliers']) &&
-        (request.resource.data.buyers >= resource.data.buyers) &&
-        (request.resource.data.suppliers >= resource.data.suppliers);
+        isAdmin() ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['buyers', 'suppliers']) &&
+          (
+            // Normal increment
+            (request.resource.data.buyers >= resource.data.buyers && request.resource.data.suppliers >= resource.data.suppliers) ||
+            // Allow reset if current values are the old defaults
+            (resource.data.buyers == 142 && resource.data.suppliers == 38 && request.resource.data.buyers == 0 && request.resource.data.suppliers == 0)
+          )
+        );
       allow create: if 
         isAdmin() || 
-        (request.resource.data.buyers == 142 && request.resource.data.suppliers == 38);
+        (request.resource.data.buyers == 0 && request.resource.data.suppliers == 0);
     }
 
     // Default deny

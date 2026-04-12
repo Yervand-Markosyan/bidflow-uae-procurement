@@ -207,12 +207,14 @@ export const initializeCounters = async () => {
   try {
     const counterRef = doc(db, 'stats', 'counters');
     const snap = await getDoc(counterRef);
-    if (!snap.exists()) {
+    
+    // Only reset if the document doesn't exist OR it still has the old default values (142+38=180)
+    if (!snap.exists() || (snap.data()?.buyers === 142 && snap.data()?.suppliers === 38)) {
       await setDoc(counterRef, {
-        buyers: 142,
-        suppliers: 38
+        buyers: 0,
+        suppliers: 0
       });
-      console.log('Counters initialized');
+      console.log('Counters initialized/reset to 0');
     }
   } catch (error) {
     console.error('Failed to initialize counters:', error);

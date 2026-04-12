@@ -99,6 +99,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, on
       return;
     }
 
+    if (window.bidflow) {
+      window.bidflow.trackEarlyAccess(email, role === 'buyer' ? 'Buyer' : 'Supplier');
+    }
+
     onSubmit(email, role);
   };
 

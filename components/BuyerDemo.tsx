@@ -112,7 +112,9 @@ export const BuyerDemo: React.FC<BuyerDemoProps> = ({ lang, onSubmit }) => {
   
   const startTracking = () => {
     if (!hasStarted) {
-      trackEvent('material_request_started', { source: 'buyer_demo' });
+      if (window.bidflow) {
+        window.bidflow.trackBuyer(1, { source: 'buyer_demo' });
+      }
       setHasStarted(true);
     }
   };
@@ -124,6 +126,17 @@ export const BuyerDemo: React.FC<BuyerDemoProps> = ({ lang, onSubmit }) => {
       return;
     }
     setError('');
+    
+    const nextStep = step + 1;
+    if (window.bidflow) {
+      const data: any = { ...formData };
+      if (step === 1) data.material_category = formData.category || formData.otherCategory;
+      if (step === 2) data.material_quantity = `${formData.quantity} ${formData.unit}`;
+      if (step === 3) data.location = formData.location;
+      
+      window.bidflow.trackBuyer(nextStep, data);
+    }
+    
     setStep(s => s + 1);
   };
   const handleBack = () => setStep(s => s - 1);
@@ -134,6 +147,17 @@ export const BuyerDemo: React.FC<BuyerDemoProps> = ({ lang, onSubmit }) => {
       setAlreadyRegistered(true);
       return;
     }
+    
+    if (window.bidflow) {
+      window.bidflow.trackBuyer(5, {
+        email: formData.email,
+        company_name: formData.companyName,
+        material_category: formData.category || formData.otherCategory,
+        quantity: `${formData.quantity} ${formData.unit}`,
+        location: formData.location
+      });
+    }
+    
     onSubmit(formData);
     setIsSubmitted(true);
   };

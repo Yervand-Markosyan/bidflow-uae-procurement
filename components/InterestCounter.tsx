@@ -28,6 +28,13 @@ export const InterestCounter: React.FC<InterestCounterProps> = ({ lang, buyersCo
       goal: `الهدف: ${goal} مستخدم مبكر`,
       current: `الحالي: ${total}`,
       joinNow: "انضم الآن"
+    },
+    hy: {
+      title: "Միացեք Դուբայի գործարկման ցուցակին",
+      subtitle: "Միացեք շինարարության ոլորտի մասնագետների աճող համայնքին, ովքեր պատրաստվում են թվային անցմանը:",
+      goal: `Նպատակ՝ ${goal} վաղ օգտատեր`,
+      current: `Ընթացիկ՝ ${total}`,
+      joinNow: "Միացեք հիմա"
     }
   }[lang];
 
@@ -41,7 +48,7 @@ export const InterestCounter: React.FC<InterestCounterProps> = ({ lang, buyersCo
           
           <div className="relative z-10">
             <div className="text-center space-y-8 max-w-3xl mx-auto">
-              <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight leading-tight">{t.title}</h2>
+              <h2 className="text-4xl md:text-6xl font-black !text-white tracking-tight leading-tight">{t?.title}</h2>
               <button 
                 onClick={() => document.getElementById('registration-form')?.scrollIntoView({ behavior: 'smooth' })}
                 className="btn-primary px-8 py-3 rounded-full font-bold"

@@ -125,7 +125,7 @@ export const FinalCTA: React.FC<FinalCTAProps> = ({ lang, onSubmit }) => {
               >
                 <Rocket className="w-10 h-10 text-brand-slate" />
               </motion.div>
-              <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-[1.1]">
+              <h2 className="text-4xl md:text-6xl font-black !text-white tracking-tighter leading-[1.1]">
                 {t.title}
               </h2>
               <p className="text-slate-400 text-lg md:text-xl font-medium">

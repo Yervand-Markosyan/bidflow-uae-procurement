@@ -115,7 +115,9 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasStarted) {
-      trackEvent('supplier_signup_started', { source: 'supplier_demo' });
+      if (window.bidflow) {
+        window.bidflow.trackSupplier(1, { source: 'supplier_demo' });
+      }
       setHasStarted(true);
     }
     if (step < 4) {
@@ -123,17 +125,40 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
         // Initialize materials array based on selected names
         const newMaterials = selectedMaterialNames.map(name => ({
           name: name === 'Other' || name === 'أخرى' ? otherMaterial : name,
-          unit: units[0],
+          unit: units[0].en,
           price: ''
         }));
         setFormData(prev => ({ ...prev, materials: newMaterials }));
+        
+        if (window.bidflow) {
+          window.bidflow.trackSupplier(2, { selected_materials: selectedMaterialNames });
+        }
       }
+      
+      if (step === 2 && window.bidflow) {
+        window.bidflow.trackSupplier(3, { materials_pricing: formData.materials });
+      }
+      
+      if (step === 3 && window.bidflow) {
+        window.bidflow.trackSupplier(4, { company_name: formData.companyName, location: formData.city });
+      }
+      
       setStep(step + 1);
     } else {
       if (formData.email === 'info@bidflow.ae') {
         setAlreadyRegistered(true);
         return;
       }
+      
+      if (window.bidflow) {
+        window.bidflow.trackSupplier(5, {
+          email: formData.email,
+          company_name: formData.companyName,
+          location: formData.city,
+          supplier_materials: formData.materials
+        });
+      }
+      
       onSubmit(formData);
       setIsSubmitted(true);
     }

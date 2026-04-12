@@ -23,8 +23,8 @@ const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
   
   // Real-time counts from Firebase
-  const [buyersCount, setBuyersCount] = useState(142); // Default starting points
-  const [suppliersCount, setSuppliersCount] = useState(38);
+  const [buyersCount, setBuyersCount] = useState(0); // Start from 0 as requested
+  const [suppliersCount, setSuppliersCount] = useState(0);
 
   useEffect(() => {
     document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
