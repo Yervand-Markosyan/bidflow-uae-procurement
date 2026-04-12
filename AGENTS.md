@@ -18,8 +18,7 @@ This file contains critical instructions for AI agents working on this project o
 - **Blueprint**: Use `firebase-blueprint.json` to define the Firestore schema and security rules logic.
 - **Real-time Counters**: The app uses a specific pattern in `services/trackingService.ts` for real-time buyer/supplier counters. Ensure `initializeCounters()` is called on app load.
 
-## 4. Remixing Instructions
-- When this app is remixed, the new agent MUST:
-  1. Read `firebase-applet-config.json`.
-  2. If it contains placeholder data, trigger the `set_up_firebase` tool.
-  3. Re-verify the GitHub Actions deployment settings as they are repository-specific.
+## 5. Manual Workflow Restoration
+- **The Problem**: AI Studio's push mechanism often deletes the `.github` folder on the remote repository.
+- **The Process**: Every time the agent completes a task and suggests a push, it MUST provide the full code and the exact path for the `.github/workflows/deploy.yml` file.
+- **User Action**: The user will manually recreate this file on GitHub after pushing from AI Studio to ensure the deployment continues to work.

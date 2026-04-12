@@ -49,7 +49,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, lang, o
             xmlns="http://www.w3.org/2000/svg" 
             viewBox="0 0 199.45 270.89"
             className="w-4 h-4"
+            aria-hidden="true"
           >
+            <title>Bidflow Logo</title>
             <path 
               fill="#FACC15" 
               d="M156,125.62q30-22.62,30-56.76Q186,0,98.43,0H0V270.89H72.91V71.32H109.1a13.77,13.77,0,0,1,13.77,13.77h0A13.76,13.76,0,0,1,109.1,98.86H89.58V176H109.1a13.77,13.77,0,1,1,0,27.54H89.58v67.33h13.9c16.13,0,34.05-1.38,43.58-4.16A73.38,73.38,0,0,0,173.85,252q25.6-22,25.6-59.14Q199.45,144.48,156,125.62Z"
@@ -74,15 +76,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, lang, o
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200">
           <button 
             onClick={() => onLangChange('en')}
+            aria-label="Switch to English"
             className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${lang === 'en' ? 'bg-white shadow-sm scale-100' : 'opacity-50 hover:opacity-100 scale-90'}`}
           >
-             <img src="https://flagcdn.com/w40/us.png" alt="EN" className="w-4 h-4 object-contain" />
+             <img src="https://flagcdn.com/w40/us.png" alt="English" className="w-4 h-4 object-contain" />
           </button>
           <button 
             onClick={() => onLangChange('ar')}
+            aria-label="Switch to Arabic"
             className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${lang === 'ar' ? 'bg-white shadow-sm scale-100' : 'opacity-50 hover:opacity-100 scale-90'}`}
           >
-             <img src="https://flagcdn.com/w40/ae.png" alt="AR" className="w-4 h-4 object-contain" />
+             <img src="https://flagcdn.com/w40/ae.png" alt="Arabic" className="w-4 h-4 object-contain" />
           </button>
         </div>
 

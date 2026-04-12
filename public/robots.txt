@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://new.bidflow.ae/sitemap.xml

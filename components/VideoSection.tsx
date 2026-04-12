@@ -293,6 +293,7 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onContextMenu={(e) => e.preventDefault()}
+                    title="Bidflow Dubai Construction Procurement Platform Demo"
                   >
                     <source src="https://firebasestorage.googleapis.com/v0/b/bidflow-492109.firebasestorage.app/o/main-video.mp4?alt=media&token=6b9ef5be-1007-43ed-b569-d02c2da2bfd3" type="video/mp4" />
                     Your browser does not support the video tag.
