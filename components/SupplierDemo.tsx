@@ -56,7 +56,8 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       freeAccess: "6 months free access when Bidflow launches",
       continue: "Continue",
       join: "Join supplier early access",
-      back: "Back"
+      back: "Back",
+      materialError: "Please select at least one product"
     },
     ar: {
       title: "سجل كمورد",
@@ -82,7 +83,8 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       freeAccess: "6 أشهر وصول مجاني عند إطلاق بيدفلو",
       continue: "متابعة",
       join: "انضم إلى الوصول المبكر للموردين",
-      back: "رجوع"
+      back: "رجوع",
+      materialError: "يرجى اختيار منتج واحد على الأقل"
     },
     hy: {
       title: "Գրանցվել որպես մատակարար",
@@ -108,12 +110,22 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       freeAccess: "6 ամիս անվճար հասանելիություն, երբ Bidflow-ը գործարկվի",
       continue: "Շարունակել",
       join: "Միացեք մատակարարների վաղ հասանելիությանը",
-      back: "Հետ"
+      back: "Հետ",
+      materialError: "Խնդրում ենք ընտրել առնվազն մեկ ապրանք"
     }
   }[lang];
 
+  const [materialError, setMaterialError] = useState(false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (step === 1 && selectedMaterialNames.length === 0) {
+      setMaterialError(true);
+      return;
+    }
+    setMaterialError(false);
+
     if (!hasStarted) {
       if (window.bidflow) {
         window.bidflow.trackSupplier(1, { source: 'supplier_demo' });
@@ -231,17 +243,31 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
                         <button
                           key={mat}
                           type="button"
-                          onClick={() => toggleMaterial(mat)}
+                          onClick={() => {
+                            toggleMaterial(mat);
+                            setMaterialError(false);
+                          }}
                           className={`p-3 text-xs font-bold rounded-xl border-2 transition-all ${
                             selectedMaterialNames.includes(mat)
                               ? 'border-brand-primary bg-brand-primary/5 text-brand-slate'
-                              : 'border-slate-50 bg-slate-50 text-slate-500 hover:border-slate-200'
+                              : materialError 
+                                ? 'border-red-100 bg-red-50/30 text-slate-500 hover:border-red-200'
+                                : 'border-slate-50 bg-slate-50 text-slate-500 hover:border-slate-200'
                           }`}
                         >
                           {mat}
                         </button>
                       ))}
                     </div>
+                    {materialError && (
+                      <motion.p 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-red-500 text-xs font-bold"
+                      >
+                        {t.materialError}
+                      </motion.p>
+                    )}
                     {(selectedMaterialNames.includes('Other') || selectedMaterialNames.includes('أخرى')) && (
                       <input 
                         type="text"
