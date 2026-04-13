@@ -52,9 +52,9 @@ export const SupplierGrowth: React.FC<SupplierGrowthProps> = ({ lang }) => {
 
             <div className="p-8 bg-brand-slate rounded-2xl shadow-saas relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-brand-primary/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 relative z-10">{t.requests}</h3>
+              <div className="text-sm font-bold text-white uppercase tracking-wider mb-2 relative z-10">{t.requests}</div>
               <div className="text-4xl font-black text-white relative z-10">128</div>
-              <p className="text-xs text-slate-500 mt-2 relative z-10">Average monthly requests per supplier</p>
+              <p className="text-xs text-white/70 mt-2 relative z-10">Average monthly requests per supplier</p>
             </div>
           </div>
 
