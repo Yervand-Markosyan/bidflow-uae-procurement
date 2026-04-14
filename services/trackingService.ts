@@ -119,25 +119,26 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       mode: 'cors',
+      credentials: 'omit',
       body: JSON.stringify({
         event_name: eventName,
         timestamp: new Date().toISOString(),
-        session_id: localStorage.getItem('bidflow_session') || 
-                   (s => (localStorage.setItem('bidflow_session', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+        session_id: localStorage.getItem('bf_sid') || 
+                   (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
         properties: {
           ...properties,
           url: window.location.href,
           referrer: document.referrer,
-          screen: window.innerWidth + 'x' + window.innerHeight,
+          ua: navigator.userAgent,
           device: getDeviceType(),
           language: navigator.language || 'en',
         }
       })
     });
     const result = await response.json();
-    console.log(`Event tracked via API: ${eventName}`, result);
+    console.log('BidFlow Success:', result);
   } catch (error) {
-    console.error(`Track error for ${eventName}:`, error);
+    console.error('BidFlow Error:', error);
   }
 };
 

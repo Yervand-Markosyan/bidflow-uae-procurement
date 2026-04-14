@@ -86,48 +86,57 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <script>
-    async function trackEvent(name, props = {}) {
-      const url = 'https://ais-dev-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          mode: 'cors',
-          body: JSON.stringify({
-            event_name: name,
-            timestamp: new Date().toISOString(),
-            session_id: localStorage.getItem('bidflow_session') || 
-                       (s => (localStorage.setItem('bidflow_session', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
-            properties: {
-              ...props,
-              url: window.location.href,
-              referrer: document.referrer,
-              screen: window.innerWidth + 'x' + window.innerHeight
-            }
-          })
-        });
-        console.log('Track success:', await response.json());
-      } catch (e) {
-        console.error('Track error:', e);
+    (function() {
+      const TRACKING_URL = 'https://ais-dev-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
+      
+      async function trackEvent(name, props = {}) {
+        console.log('BidFlow Tracking:', name, props);
+        try {
+          const response = await fetch(TRACKING_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors',
+            credentials: 'omit',
+            body: JSON.stringify({
+              event_name: name,
+              timestamp: new Date().toISOString(),
+              session_id: localStorage.getItem('bf_sid') || 
+                         (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+              properties: {
+                ...props,
+                url: window.location.href,
+                referrer: document.referrer,
+                ua: navigator.userAgent
+              }
+            })
+          });
+          const result = await response.json();
+          console.log('BidFlow Success:', result);
+        } catch (e) {
+          console.error('BidFlow Error:', e);
+        }
       }
-    }
 
-    // Auto-track page view
-    trackEvent('page_view_landing');
+      // Track page view immediately
+      trackEvent('page_view_landing');
 
-    // Maintain compatibility with React components
-    window.bidflow = {
-      track: trackEvent,
-      trackEarlyAccess: (email, role) => trackEvent('early_access_signup', { email, role }),
-      trackSupplier: (step, data) => {
-        const events = { 1: 'supplier_signup_started', 2: 'supplier_materials_selected', 3: 'supplier_pricing_entered', 4: 'supplier_company_info_entered', 5: 'supplier_signup_submitted' };
-        trackEvent(events[step] || 'supplier_signup_step', data);
-      },
-      trackBuyer: (step, data) => {
-        const events = { 1: 'material_request_started', 2: 'material_category_selected', 3: 'material_quantity_entered', 4: 'project_location_entered', 5: 'material_request_submitted' };
-        trackEvent(events[step] || 'material_request_step', data);
-      }
-    };
+      // Global access
+      window.bfTrack = trackEvent;
+
+      // Maintain compatibility with React components
+      window.bidflow = {
+        track: trackEvent,
+        trackEarlyAccess: (email, role) => trackEvent('early_access_signup', { email, role }),
+        trackSupplier: (step, data) => {
+          const events = { 1: 'supplier_signup_started', 2: 'supplier_materials_selected', 3: 'supplier_pricing_entered', 4: 'supplier_company_info_entered', 5: 'supplier_signup_submitted' };
+          trackEvent(events[step] || 'supplier_signup_step', data);
+        },
+        trackBuyer: (step, data) => {
+          const events = { 1: 'material_request_started', 2: 'material_category_selected', 3: 'material_quantity_entered', 4: 'project_location_entered', 5: 'material_request_submitted' };
+          trackEvent(events[step] || 'material_request_step', data);
+        }
+      };
+    })();
     </script>
 </head>
 <body>
