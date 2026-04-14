@@ -113,27 +113,31 @@ const cleanData = (data: any): any => {
 };
 
 export const trackEvent = async (eventName: string, properties: TrackingProperties = {}) => {
+  const url = 'https://ais-dev-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
   try {
-    const utms = getUTMParams();
-    const eventData = cleanData({
-      event_name: eventName,
-      timestamp: new Date().toISOString(),
-      firestore_timestamp: serverTimestamp(),
-      session_id: SESSION_ID,
-      properties: {
-        device: getDeviceType(),
-        language: navigator.language || 'en',
-        ...properties,
-        ...utms,
-        url: window.location.href,
-        referrer: document.referrer,
-      },
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      mode: 'cors',
+      body: JSON.stringify({
+        event_name: eventName,
+        timestamp: new Date().toISOString(),
+        session_id: localStorage.getItem('bidflow_session') || 
+                   (s => (localStorage.setItem('bidflow_session', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+        properties: {
+          ...properties,
+          url: window.location.href,
+          referrer: document.referrer,
+          screen: window.innerWidth + 'x' + window.innerHeight,
+          device: getDeviceType(),
+          language: navigator.language || 'en',
+        }
+      })
     });
-
-    await addDoc(collection(db, 'events'), eventData);
-    console.log(`Event tracked: ${eventName}`, eventData);
+    const result = await response.json();
+    console.log(`Event tracked via API: ${eventName}`, result);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'events');
+    console.error(`Track error for ${eventName}:`, error);
   }
 };
 
