@@ -149,12 +149,18 @@ const cleanData = (data: any): any => {
 };
 
 export const trackEvent = async (eventName: string, properties: TrackingProperties = {}) => {
+  // If the global tracking script is available, use it for consistency (handles UTMs, sessions, etc.)
+  if (window.bidflow && typeof window.bidflow.track === 'function') {
+    window.bidflow.track(eventName, properties);
+    return;
+  }
+
   const url = 'https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
   const payload = JSON.stringify({
     event_name: eventName,
     timestamp: new Date().toISOString(),
-    session_id: localStorage.getItem('bf_sid') || 
-               (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+    session_id: sessionStorage.getItem('bf_sid') || 
+               (s => (sessionStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
     properties: {
       ...properties,
       url: window.location.href,

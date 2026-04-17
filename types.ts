@@ -30,8 +30,8 @@ declare global {
     bidflow: {
       track: (eventName: string, properties?: any) => void;
       trackEarlyAccess: (email: string, role: string) => void;
-      trackSupplier: (step: number, data: any) => void;
-      trackBuyer: (step: number, data: any) => void;
+      trackSupplier: (step: number, data?: any) => void;
+      trackBuyer: (step: number, data?: any) => void;
     };
   }
 }

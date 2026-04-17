@@ -87,69 +87,180 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Bidflow Tracking Script -->
     <script>
     (function() {
-      const TRACKING_URL = 'https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
-      
-      async function trackEvent(name, props = {}) {
-        const payload = JSON.stringify({
-          event_name: name,
+      const BIDFLOW_API = "https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track";
+      const SESSION_START = Date.now();
+      let videoWatched = false;
+      let videoStartTime = 0;
+      let totalVideoTime = 0;
+      let lastHeartbeat = Date.now();
+    
+      function track(eventName, properties = {}) {
+        const event = {
+          event_name: eventName,
           timestamp: new Date().toISOString(),
-          session_id: localStorage.getItem('bf_sid') || 
-                     (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+          session_id: getSessionId(),
           properties: {
-            ...props,
-            url: window.location.href,
-            referrer: document.referrer,
-            ua: navigator.userAgent
+            ...properties,
+            utm_source: getParam('utm_source') || getReferrerSource(),
+            utm_campaign: getParam('utm_campaign'),
+            utm_medium: getParam('utm_medium'),
+            device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
+            language: navigator.language.startsWith('ar') ? 'AR' : 'EN',
+            session_duration: Math.floor((Date.now() - SESSION_START) / 1000),
+            page_url: window.location.href
           }
-        });
+        };
+        
+        const payload = JSON.stringify(event);
 
-        console.log('BidFlow Tracking:', name, props);
-
-        // Try sendBeacon first for reliability, especially on unload
         if (navigator.sendBeacon) {
           const blob = new Blob([payload], { type: 'application/json' });
-          if (navigator.sendBeacon(TRACKING_URL, blob)) {
-            console.log('BidFlow Sent via Beacon');
-            return;
-          }
+          if (navigator.sendBeacon(BIDFLOW_API, blob)) return;
         }
 
-        // Fallback to fetch
-        try {
-          const response = await fetch(TRACKING_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            mode: 'cors',
-            credentials: 'omit',
-            body: payload
-          });
-          if (response.ok) {
-            console.log('BidFlow Success (Fetch)');
-          }
-        } catch (e) {
-          console.warn('BidFlow Tracking Error:', e.message);
-        }
+        fetch(BIDFLOW_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+          mode: 'cors',
+          credentials: 'omit'
+        }).catch(err => console.error('Bidflow tracking failed', err));
       }
-
-      // Track page view immediately
-      trackEvent('page_view_landing');
-
-      // Global access
-      window.bfTrack = trackEvent;
-
-      // Maintain compatibility with React components
-      window.bidflow = {
-        track: trackEvent,
-        trackEarlyAccess: (email, role) => trackEvent('early_access_signup', { email, role }),
-        trackSupplier: (step, data) => {
-          const events = { 1: 'supplier_signup_started', 2: 'supplier_materials_selected', 3: 'supplier_pricing_entered', 4: 'supplier_company_info_entered', 5: 'supplier_signup_submitted' };
-          trackEvent(events[step] || 'supplier_signup_step', data);
+    
+      function getSessionId() {
+        let sid = sessionStorage.getItem('bf_sid');
+        if (!sid) {
+          sid = 's_' + Math.random().toString(36).substr(2, 9);
+          sessionStorage.setItem('bf_sid', sid);
+        }
+        return sid;
+      }
+    
+      function getParam(name) {
+        return new URLSearchParams(window.location.search).get(name);
+      }
+    
+      function getReferrerSource() {
+        const ref = document.referrer;
+        if (!ref) return 'Ուղիղ';
+        if (ref.includes('google.com')) return 'google';
+        if (ref.includes('facebook.com')) return 'facebook';
+        if (ref.includes('instagram.com')) return 'instagram';
+        if (ref.includes('linkedin.com')) return 'linkedin';
+        return 'Organic_Referral';
+      }
+    
+      // Video Tracking with IntersectionObserver to avoid autoplay false positives
+      function initVideoTracking() {
+        const video = document.querySelector('video');
+        if (!video) return;
+    
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && !video.paused) {
+              if (videoStartTime === 0) videoStartTime = Date.now();
+            } else {
+              if (videoStartTime > 0) {
+                totalVideoTime += (Date.now() - videoStartTime) / 1000;
+                videoStartTime = 0;
+              }
+            }
+          });
+        }, { threshold: 0.5 });
+    
+        observer.observe(video);
+    
+        video.addEventListener('play', () => {
+          if (videoStartTime === 0) videoStartTime = Date.now();
+        });
+    
+        video.addEventListener('pause', () => {
+          if (videoStartTime > 0) {
+            totalVideoTime += (Date.now() - videoStartTime) / 1000;
+            videoStartTime = 0;
+          }
+        });
+    
+        // Final video stats on page leave
+        window.addEventListener('beforeunload', () => {
+          if (videoStartTime > 0) {
+            totalVideoTime += (Date.now() - videoStartTime) / 1000;
+          }
+          if (totalVideoTime > 2) { // Only track if watched more than 2 seconds
+            track('video_watch_time', { 
+              video_duration: Math.round(totalVideoTime),
+              watched_real: true 
+            });
+          }
+          
+          // Final session duration
+          const finalDuration = Math.floor((Date.now() - SESSION_START) / 1000);
+          track('session_end', { 
+            duration: finalDuration,
+            duration_segment: finalDuration > 9 ? '>9s' : '<9s'
+          });
+        });
+      }
+    
+      // Scroll Tracking
+      function initScrollTracking() {
+        let maxScroll = 0;
+        window.addEventListener('scroll', () => {
+          const h = document.documentElement;
+          const b = document.body;
+          const st = 'scrollTop';
+          const sh = 'scrollHeight';
+          const scrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100);
+          if (scrollPercent > maxScroll) {
+            maxScroll = scrollPercent;
+          }
+        });
+    
+        window.addEventListener('beforeunload', () => {
+          if (maxScroll > 5) { // Only track if meaningful scroll happened
+            track('scroll_depth', { scroll_depth: maxScroll });
+          }
+        });
+      }
+    
+      // Auto-track page view
+      track('script_initialized', { version: '1.2' });
+      track('page_view_landing');
+      initVideoTracking();
+      initScrollTracking();
+    
+      // Global access for custom events
+      window.bidflow = { 
+        track,
+        // Helper for early access
+        trackEarlyAccess: (email, role) => {
+          track('early_access_signup', { email, role });
         },
+        // Helper for supplier signup
+        trackSupplier: (step, data) => {
+          const events = {
+            1: 'supplier_signup_started',
+            2: 'supplier_materials_selected',
+            3: 'supplier_pricing_entered',
+            4: 'supplier_company_info_entered',
+            5: 'supplier_signup_submitted'
+          };
+          track(events[step] || 'supplier_signup_step', data);
+        },
+        // Helper for buyer request
         trackBuyer: (step, data) => {
-          const events = { 1: 'material_request_started', 2: 'material_category_selected', 3: 'material_quantity_entered', 4: 'project_location_entered', 5: 'material_request_submitted' };
-          trackEvent(events[step] || 'material_request_step', data);
+          const events = {
+            1: 'material_request_started',
+            2: 'material_category_selected',
+            3: 'material_quantity_entered',
+            4: 'project_location_entered',
+            5: 'material_request_submitted'
+          };
+          track(events[step] || 'material_request_step', data);
         }
       };
     })();
