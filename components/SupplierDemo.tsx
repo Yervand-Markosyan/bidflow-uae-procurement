@@ -49,6 +49,8 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       alreadyRegisteredMsg: "Thank you! This email is already registered. We will notify you when Bidflow launches.",
       other: "Other",
       step2Title: "Unit and approximate price",
+      selectUnit: "Select unit",
+      pricingError: "Please provide both price and unit, or leave both empty.",
       pricePlaceholder: "Approximate price per unit (optional)",
       priceNote: "This information helps us understand market pricing and is not shown publicly.",
       step3Title: "Company information",
@@ -76,6 +78,8 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       alreadyRegisteredMsg: "شكراً لك! هذا البريد الإلكتروني مسجل بالفعل. سنقوم بإبلاغك عند إطلاق بيدفلو.",
       other: "أخرى",
       step2Title: "الوحدة والسعر التقريبي",
+      selectUnit: "اختر الوحدة",
+      pricingError: "يرجى تقديم كل من السعر والوحدة، أو تركهما فارغين.",
       pricePlaceholder: "السعر التقريبي لكل وحدة (اختياري)",
       priceNote: "تساعدنا هذه المعلومات في فهم أسعار السوق ولا يتم عرضها علنًا.",
       step3Title: "معلومات الشركة",
@@ -103,6 +107,8 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
       alreadyRegisteredMsg: "Շնորհակալություն: Այս էլ. հասցեն արդեն գրանցված է: Մենք կտեղեկացնենք ձեզ, երբ Bidflow-ը գործարկվի:",
       other: "Այլ",
       step2Title: "Միավոր և մոտավոր գին",
+      selectUnit: "Ընտրեք միավորը",
+      pricingError: "Խնդրում ենք լրացնել և՛ գինը, և՛ միավորը, կամ երկուսն էլ թողնել դատարկ:",
       pricePlaceholder: "Մոտավոր գին մեկ միավորի համար (ըստ ցանկության)",
       priceNote: "Այս տեղեկատվությունը օգնում է մեզ հասկանալ շուկայական գները և հրապարակայնորեն չի ցուցադրվում:",
       step3Title: "Ընկերության տեղեկատվություն",
@@ -127,6 +133,17 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
     }
     setMaterialError(false);
 
+    if (step === 2) {
+      const incomplete = formData.materials.some(mat => 
+        (mat.price.trim() !== '' && !mat.unit) || 
+        (mat.unit && mat.price.trim() === '')
+      );
+      if (incomplete) {
+        setMaterialError(true);
+        return;
+      }
+    }
+
     if (!hasStarted) {
       if (window.bidflow) {
         window.bidflow.trackSupplier(1, { source: 'supplier_demo' });
@@ -138,7 +155,7 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
         // Initialize materials array based on selected names
         const newMaterials = selectedMaterialNames.map(name => ({
           name: name === 'Other' || name === 'أخرى' ? otherMaterial : name,
-          unit: units[0].en,
+          unit: '',
           price: ''
         }));
         setFormData(prev => ({ ...prev, materials: newMaterials }));
@@ -306,6 +323,7 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
                               const newMaterials = [...formData.materials];
                               newMaterials[index].price = e.target.value;
                               setFormData(prev => ({ ...prev, materials: newMaterials }));
+                              setMaterialError(false);
                             }}
                             className="w-full md:flex-[2] p-3 bg-white border border-slate-200 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
@@ -315,14 +333,25 @@ export const SupplierDemo: React.FC<SupplierDemoProps> = ({ lang, onSubmit }) =>
                               const newMaterials = [...formData.materials];
                               newMaterials[index].unit = e.target.value;
                               setFormData(prev => ({ ...prev, materials: newMaterials }));
+                              setMaterialError(false);
                             }}
                             className="w-full md:flex-1 p-3 bg-white border border-slate-200 rounded-lg"
                           >
+                            <option value="">{t.selectUnit}</option>
                             {units.map(u => <option key={u.en} value={u.en}>{u[lang]}</option>)}
                           </select>
                         </div>
                       </div>
                     ))}
+                    {materialError && (
+                      <motion.p 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-red-500 text-xs font-bold"
+                      >
+                        {t.pricingError}
+                      </motion.p>
+                    )}
                     <p className="text-xs text-slate-500">{t.priceNote}</p>
                   </div>
                 )}
