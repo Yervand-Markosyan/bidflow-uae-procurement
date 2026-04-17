@@ -14,6 +14,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
       tag: "Empowering Construction Through Digital Innovation",
       li: "LinkedIn",
       ig: "Instagram",
+      contact: "Contact",
       operatedBy: "Operated by Shintender LLC Armenia",
       disclaimer: "Bidflow is currently conducting market validation in the UAE construction materials sector. The platform is not yet operational and does not facilitate commercial transactions. All submissions are part of an early access program used to understand market demand and supplier interest."
     },
@@ -22,6 +23,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
       tag: "تمكين قطاع البناء من خلال الابتكار الرقمي",
       li: "لينكد إن",
       ig: "إنستغرام",
+      contact: "اتصال",
       operatedBy: "تدار بواسطة Shintender LLC أرمينيا",
       disclaimer: "Bidflow تقوم حالياً بدراسة الطلب في سوق مواد البناء في دولة الإمارات. المنصة ليست قيد التشغيل بعد ولا تُجرى أي معاملات تجارية عبرها. جميع البيانات المرسلة هي جزء من برنامج الوصول المبكر بهدف فهم الطلب في السوق واهتمام الموردين."
     },
@@ -30,6 +32,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
       tag: "Շինարարության հզորացում թվային նորարարության միջոցով",
       li: "LinkedIn",
       ig: "Instagram",
+      contact: "Կապ",
       operatedBy: "Ղեկավարվում է Shintender LLC Armenia-ի կողմից",
       disclaimer: "Bidflow-ն այժմ իրականացնում է շուկայի վավերացում ԱՄԷ շինարարական նյութերի ոլորտում: Հարթակը դեռևս չի գործում և չի իրականացնում առևտրային գործարքներ: Բոլոր ներկայացված հայտերը վաղ հասանելիության ծրագրի մաս են, որն օգտագործվում է շուկայի պահանջարկը և մատակարարների հետաքրքրությունը հասկանալու համար:"
     }
@@ -63,7 +66,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
           </div>
 
           <div className="space-y-6">
-            <h4 className="text-xs font-black text-brand-slate uppercase tracking-widest">Contact</h4>
+            <h4 className="text-xs font-black text-brand-slate uppercase tracking-widest">{t.contact}</h4>
             <ul className="space-y-4">
               <li>
                 <a href="mailto:info@bidflow.ae" className="text-slate-500 hover:text-brand-blue transition-colors font-medium">
