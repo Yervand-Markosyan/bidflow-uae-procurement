@@ -14,6 +14,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
       tag: "Empowering Construction Through Digital Innovation",
       li: "LinkedIn",
       ig: "Instagram",
+      operatedBy: "Operated by Shintender LLC Armenia",
       disclaimer: "Bidflow is currently conducting market validation in the UAE construction materials sector. The platform is not yet operational and does not facilitate commercial transactions. All submissions are part of an early access program used to understand market demand and supplier interest."
     },
     ar: {
@@ -21,6 +22,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
       tag: "تمكين قطاع البناء من خلال الابتكار الرقمي",
       li: "لينكد إن",
       ig: "إنستغرام",
+      operatedBy: "تدار بواسطة Shintender LLC أرمينيا",
       disclaimer: "Bidflow تقوم حالياً بدراسة الطلب في سوق مواد البناء في دولة الإمارات. المنصة ليست قيد التشغيل بعد ولا تُجرى أي معاملات تجارية عبرها. جميع البيانات المرسلة هي جزء من برنامج الوصول المبكر بهدف فهم الطلب في السوق واهتمام الموردين."
     },
     hy: {
@@ -28,6 +30,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
       tag: "Շինարարության հզորացում թվային նորարարության միջոցով",
       li: "LinkedIn",
       ig: "Instagram",
+      operatedBy: "Ղեկավարվում է Shintender LLC Armenia-ի կողմից",
       disclaimer: "Bidflow-ն այժմ իրականացնում է շուկայի վավերացում ԱՄԷ շինարարական նյութերի ոլորտում: Հարթակը դեռևս չի գործում և չի իրականացնում առևտրային գործարքներ: Բոլոր ներկայացված հայտերը վաղ հասանելիության ծրագրի մաս են, որն օգտագործվում է շուկայի պահանջարկը և մատակարարների հետաքրքրությունը հասկանալու համար:"
     }
   }[lang];
@@ -82,8 +85,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
         </div>
         
         <div className="pt-8 border-t border-slate-100 flex flex-col gap-6">
-          <div className="text-slate-400 text-xs font-medium text-center md:text-left">
-            {t.copy}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-slate-400 text-xs font-medium text-center md:text-left">
+              {t.copy}
+            </div>
+            <div className="text-slate-400 text-xs font-medium text-center md:text-right">
+              {t.operatedBy}
+            </div>
           </div>
           <div className="max-w-4xl">
             <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed font-normal text-center md:text-left opacity-80">
