@@ -1,4 +1,20 @@
-import { collection, addDoc, serverTimestamp, getDocFromServer, doc, onSnapshot, updateDoc, increment, setDoc, getDoc, query, where, getDocs, limit } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  doc, 
+  onSnapshot, 
+  updateDoc, 
+  increment, 
+  setDoc, 
+  getDoc, 
+  query, 
+  where, 
+  getDocs, 
+  limit,
+  getCountFromServer
+} from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
 export enum OperationType {
@@ -68,6 +84,25 @@ testConnection();
 
 // Generate a random session ID for the visit
 const SESSION_ID = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+const generateCode = () => Math.floor(1000 + Math.random() * 9000).toString();
+
+const isCodeUnique = async (code: string) => {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('code', '==', code));
+  const snap = await getDocs(q);
+  return snap.empty;
+};
+
+const getUniqueCode = async (): Promise<string> => {
+  let code = generateCode();
+  let attempts = 0;
+  while (!(await isCodeUnique(code)) && attempts < 10) {
+    code = generateCode();
+    attempts++;
+  }
+  return code;
+};
 
 const getDeviceType = () => {
   const ua = navigator.userAgent;
@@ -190,10 +225,14 @@ export const saveUserRegistration = async (userData: any) => {
       return { success: false, alreadyExists: true };
     }
 
+    // Generate unique 4-digit code
+    const uniqueCode = await getUniqueCode();
+
     const utms = getUTMParams();
     const data = cleanData({
       ...userData,
-      email: email, // ensure lowered email
+      email: email, 
+      code: uniqueCode,
       timestamp: new Date().toISOString(),
       firestore_timestamp: serverTimestamp(),
       session_id: SESSION_ID,
@@ -212,9 +251,11 @@ export const saveUserRegistration = async (userData: any) => {
         [roleKey]: increment(1)
       });
     } catch (e) {
-      // If document doesn't exist, try to create it (might fail due to rules if not admin, 
-      // but rules allow update if it exists)
-      console.warn('Counter update failed, document might not exist yet');
+      // If document doesn't exist, create it with 1
+      await setDoc(counterRef, {
+        buyers: userData.role === 'buyer' ? 1 : 0,
+        suppliers: userData.role === 'supplier' ? 1 : 0
+      }, { merge: true });
     }
 
     console.log('User registration saved:', data);
@@ -239,17 +280,30 @@ export const subscribeToCounters = (callback: (data: { buyers: number; suppliers
 export const initializeCounters = async () => {
   try {
     const counterRef = doc(db, 'stats', 'counters');
-    const snap = await getDoc(counterRef);
     
-    // Only reset if the document doesn't exist OR it still has the old default values (142+38=180)
-    if (!snap.exists() || (snap.data()?.buyers === 142 && snap.data()?.suppliers === 38)) {
-      await setDoc(counterRef, {
-        buyers: 0,
-        suppliers: 0
-      });
-      console.log('Counters initialized/reset to 0');
-    }
+    // Use Aggregation Queries (very cheap: 1 read per 1000 documents)
+    // to get the absolute source of truth from the users collection
+    const buyersQuery = query(collection(db, 'users'), where('role', '==', 'buyer'));
+    const suppliersQuery = query(collection(db, 'users'), where('role', '==', 'supplier'));
+    
+    const [buyersSnap, suppliersSnap] = await Promise.all([
+      getCountFromServer(buyersQuery),
+      getCountFromServer(suppliersQuery)
+    ]);
+    
+    const actualBuyers = buyersSnap.data().count;
+    const actualSuppliers = suppliersSnap.data().count;
+
+    // Check last sync to avoid overwriting too frequently if needed, 
+    // but for now, we sync on every app load to ensure accuracy.
+    await setDoc(counterRef, {
+      buyers: actualBuyers,
+      suppliers: actualSuppliers,
+      lastReconciled: serverTimestamp()
+    }, { merge: true });
+    
+    console.log(`Counters reconciled: Buyers=${actualBuyers}, Suppliers=${actualSuppliers}`);
   } catch (error) {
-    console.error('Failed to initialize counters:', error);
+    console.error('Failed to reconcile counters:', error);
   }
 };

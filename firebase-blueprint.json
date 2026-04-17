@@ -27,6 +27,7 @@
       "type": "object",
       "properties": {
         "email": { "type": "string", "format": "email" },
+        "code": { "type": "string", "description": "Unique 4-digit code for the user." },
         "role": { "type": "string", "enum": ["buyer", "supplier"] },
         "timestamp": { "type": "string", "format": "date-time" },
         "firestore_timestamp": { "type": "object" },
