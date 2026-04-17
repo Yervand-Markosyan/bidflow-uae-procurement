@@ -87,33 +87,47 @@
     
     <script>
     (function() {
-      const TRACKING_URL = 'https://ais-dev-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
+      const TRACKING_URL = 'https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
       
       async function trackEvent(name, props = {}) {
+        const payload = JSON.stringify({
+          event_name: name,
+          timestamp: new Date().toISOString(),
+          session_id: localStorage.getItem('bf_sid') || 
+                     (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+          properties: {
+            ...props,
+            url: window.location.href,
+            referrer: document.referrer,
+            ua: navigator.userAgent
+          }
+        });
+
         console.log('BidFlow Tracking:', name, props);
+
+        // Try sendBeacon first for reliability, especially on unload
+        if (navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: 'application/json' });
+          if (navigator.sendBeacon(TRACKING_URL, blob)) {
+            console.log('BidFlow Sent via Beacon');
+            return;
+          }
+        }
+
+        // Fallback to fetch
         try {
           const response = await fetch(TRACKING_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             mode: 'cors',
             credentials: 'omit',
-            body: JSON.stringify({
-              event_name: name,
-              timestamp: new Date().toISOString(),
-              session_id: localStorage.getItem('bf_sid') || 
-                         (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
-              properties: {
-                ...props,
-                url: window.location.href,
-                referrer: document.referrer,
-                ua: navigator.userAgent
-              }
-            })
+            body: payload
           });
-          const result = await response.json();
-          console.log('BidFlow Success:', result);
+          if (response.ok) {
+            console.log('BidFlow Success (Fetch)');
+          }
         } catch (e) {
-          console.error('BidFlow Error:', e);
+          console.warn('BidFlow Tracking Error:', e.message);
         }
       }
 

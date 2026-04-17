@@ -113,32 +113,47 @@ const cleanData = (data: any): any => {
 };
 
 export const trackEvent = async (eventName: string, properties: TrackingProperties = {}) => {
-  const url = 'https://ais-dev-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
+  const url = 'https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
+  const payload = JSON.stringify({
+    event_name: eventName,
+    timestamp: new Date().toISOString(),
+    session_id: localStorage.getItem('bf_sid') || 
+               (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+    properties: {
+      ...properties,
+      url: window.location.href,
+      referrer: document.referrer,
+      ua: navigator.userAgent,
+      device: getDeviceType(),
+      language: navigator.language || 'en',
+    }
+  });
+
+  // Try sendBeacon
+  if (navigator.sendBeacon) {
+    const blob = new Blob([payload], { type: 'application/json' });
+    if (navigator.sendBeacon(url, blob)) {
+      return;
+    }
+  }
+
+  // Fallback to fetch
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       mode: 'cors',
       credentials: 'omit',
-      body: JSON.stringify({
-        event_name: eventName,
-        timestamp: new Date().toISOString(),
-        session_id: localStorage.getItem('bf_sid') || 
-                   (s => (localStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
-        properties: {
-          ...properties,
-          url: window.location.href,
-          referrer: document.referrer,
-          ua: navigator.userAgent,
-          device: getDeviceType(),
-          language: navigator.language || 'en',
-        }
-      })
+      body: payload
     });
-    const result = await response.json();
-    console.log('BidFlow Success:', result);
+    
+    if (response.ok) {
+      console.log('BidFlow Success (Service)');
+    }
   } catch (error) {
-    console.error('BidFlow Error:', error);
+    if (error instanceof Error) {
+      console.warn('BidFlow Tracking Error:', error.message);
+    }
   }
 };
 

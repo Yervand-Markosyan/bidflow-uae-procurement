@@ -69,10 +69,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
               </li>
               <li>
                 <div className="flex items-center gap-6 pt-2">
-                  <a href="#" className="text-slate-400 hover:text-brand-slate transition-colors">
+                  <a href="https://www.linkedin.com/company/bidflow%E2%80%A4ae/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-slate transition-colors">
                     <span className="text-xs font-bold uppercase tracking-widest">{t.li}</span>
                   </a>
-                  <a href="#" className="text-slate-400 hover:text-brand-slate transition-colors">
+                  <a href="https://www.instagram.com/bidflow.uae" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-slate transition-colors">
                     <span className="text-xs font-bold uppercase tracking-widest">{t.ig}</span>
                   </a>
                 </div>
