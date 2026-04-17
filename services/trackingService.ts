@@ -180,11 +180,12 @@ if (typeof window !== 'undefined') {
 
 export const saveUserRegistration = async (userData: any) => {
   try {
-    // Check if email already exists
-    const q = query(collection(db, 'users'), where('email', '==', userData.email), limit(1));
-    const querySnapshot = await getDocs(q);
+    const email = userData.email.toLowerCase();
+    const userRef = doc(db, 'users', email);
     
-    if (!querySnapshot.empty) {
+    // Check if user already exists using the email as ID
+    const userDoc = await getDoc(userRef);
+    if (userDoc.exists()) {
       console.log('User with this email already exists');
       return { success: false, alreadyExists: true };
     }
@@ -192,6 +193,7 @@ export const saveUserRegistration = async (userData: any) => {
     const utms = getUTMParams();
     const data = cleanData({
       ...userData,
+      email: email, // ensure lowered email
       timestamp: new Date().toISOString(),
       firestore_timestamp: serverTimestamp(),
       session_id: SESSION_ID,
@@ -199,7 +201,7 @@ export const saveUserRegistration = async (userData: any) => {
       utm_campaign: utms.utm_campaign,
     });
 
-    await addDoc(collection(db, 'users'), data);
+    await setDoc(userRef, data);
     
     // Update public counters
     const counterRef = doc(db, 'stats', 'counters');

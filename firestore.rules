@@ -69,6 +69,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow create: if 
+        userId == request.resource.data.email &&
         request.resource.data.keys().hasAll(['email', 'role', 'timestamp']) &&
         isValidEmail(request.resource.data.email) &&
         request.resource.data.role in ['buyer', 'supplier'] &&
