@@ -97,6 +97,7 @@
       let totalVideoTime = 0;
       let maxScroll = 0;
       window.maxScroll = maxScroll;
+      let videoElement = null;
     
       function track(eventName, properties = {}) {
         const SESSION_DURATION = Math.floor((Date.now() - SESSION_START) / 1000);
@@ -192,9 +193,17 @@
       }
     
       // Video Tracking with IntersectionObserver to avoid autoplay false positives
-      function initVideoTracking() {
+      function initVideoTracking(retryCount = 0) {
         const video = document.querySelector('video');
-        if (!video) return;
+        if (!video) {
+          if (retryCount < 20) {
+            setTimeout(() => initVideoTracking(retryCount + 1), 1000);
+          }
+          return;
+        }
+        
+        if (videoElement === video) return; // Already tracking this element
+        videoElement = video;
     
         const observer = new IntersectionObserver((entries) => {
           entries.forEach(entry => {
@@ -207,7 +216,7 @@
               }
             }
           });
-        }, { threshold: 0.5 });
+        }, { threshold: 0.1 }); // More sensitive threshold
     
         observer.observe(video);
     
@@ -216,6 +225,13 @@
         });
     
         video.addEventListener('pause', () => {
+          if (videoStartTime > 0) {
+            totalVideoTime += (Date.now() - videoStartTime) / 1000;
+            videoStartTime = 0;
+          }
+        });
+
+        video.addEventListener('ended', () => {
           if (videoStartTime > 0) {
             totalVideoTime += (Date.now() - videoStartTime) / 1000;
             videoStartTime = 0;
@@ -265,9 +281,13 @@
       }
     
       // Auto-track page view
-      track('script_initialized', { version: '1.2' });
+      track('script_initialized', { version: '1.3' });
       track('page_view_landing');
+      
+      // Support periodic checks for the video element
       initVideoTracking();
+      setInterval(initVideoTracking, 5000);
+      
       initScrollTracking();
     
       // Global access for custom events
