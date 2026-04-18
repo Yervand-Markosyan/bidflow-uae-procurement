@@ -23,6 +23,7 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [userHasUnmuted, setUserHasUnmuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [showInitialMute, setShowInitialMute] = useState(false);
@@ -32,6 +33,7 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
   const [duration, setDuration] = useState(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const t = {
     en: {
@@ -63,6 +65,42 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
       threshold: 0.8,
     };
 
+    const fadeVolume = (targetVolume: number, duration: number = 1000) => {
+      if (!videoRef.current) return;
+      
+      const startVolume = videoRef.current.volume;
+      const delta = targetVolume - startVolume;
+      const interval = 50; 
+      const steps = duration / interval;
+      const stepDelta = steps > 0 ? delta / steps : 0;
+      
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      
+      fadeIntervalRef.current = setInterval(() => {
+        if (!videoRef.current) {
+          if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+          return;
+        }
+        
+        let nextVolume = videoRef.current.volume + stepDelta;
+        
+        const isDone = (stepDelta > 0 && nextVolume >= targetVolume) || 
+                       (stepDelta < 0 && nextVolume <= targetVolume) || 
+                       (stepDelta === 0);
+
+        if (isDone) {
+          nextVolume = targetVolume;
+          if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+          if (nextVolume === 0) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        }
+        
+        videoRef.current.volume = nextVolume;
+      }, interval);
+    };
+
     const handleIntersection = (entries: IntersectionObserverEntry[]) => {
       entries.forEach((entry) => {
         if (videoRef.current && !hasError) {
@@ -70,6 +108,12 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
             // Start video
             videoRef.current.play().then(() => {
               setIsPlaying(true);
+              
+              // If user unmuted before, fade in volume
+              if (userHasUnmuted) {
+                videoRef.current!.muted = false;
+                fadeVolume(1.0, 800);
+              }
             }).catch(error => {
               console.log("Autoplay prevented or failed:", error);
             });
@@ -81,9 +125,13 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
               setShowInitialMute(false);
             }, 5000);
           } else {
-            // Pause video
-            videoRef.current.pause();
-            setIsPlaying(false);
+            // Fade out then pause
+            if (!videoRef.current.muted && videoRef.current.volume > 0) {
+              fadeVolume(0, 800);
+            } else {
+              videoRef.current.pause();
+              setIsPlaying(false);
+            }
             
             // Reset mute button state
             setShowInitialMute(false);
@@ -122,16 +170,30 @@ export const VideoSection: React.FC<VideoSectionProps> = ({ lang }) => {
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
       if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
     };
-  }, [hasError]);
+  }, [hasError, userHasUnmuted]);
 
   // Remove the pseudo-fullscreen useEffect that was locking body scroll
 
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      
+      const newMutedState = !videoRef.current.muted;
+      videoRef.current.muted = newMutedState;
+      
+      if (!newMutedState) {
+        // Unmuting
+        videoRef.current.volume = 1.0;
+        setUserHasUnmuted(true);
+        setIsMuted(false);
+      } else {
+        // Muting
+        setUserHasUnmuted(false);
+        setIsMuted(true);
+      }
     }
   };
 
