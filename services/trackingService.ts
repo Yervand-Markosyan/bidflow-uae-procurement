@@ -156,20 +156,25 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
   let liveScroll = 0;
   let liveVideo = 0;
   if (typeof window !== 'undefined') {
-    // Access the global maxScroll if defined in index.html
-    liveScroll = (window as any).maxScroll || 0;
-    
-    // If global maxScroll is 0 or undefined, calculate current
-    if (!liveScroll) {
+    // Access the global metrics if defined in index.html
+    const metrics = (window as any).bidflow_metrics;
+    if (metrics) {
+      liveScroll = metrics.maxScroll || 0;
+      liveVideo = metrics.totalVideoTime || 0;
+      if (metrics.videoStartTime > 0) {
+        liveVideo += (Date.now() - metrics.videoStartTime) / 1000;
+      }
+    } else {
+      // Fallback calculation if metrics object is missing
       const h = document.documentElement;
       const b = document.body;
       const st = 'scrollTop';
       const sh = 'scrollHeight';
       liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
-    }
-    
-    if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
-      liveVideo = window.bidflow.getVideoWatchTime();
+      
+      if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
+        liveVideo = window.bidflow.getVideoWatchTime();
+      }
     }
   }
 
@@ -185,11 +190,11 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
     utm_medium: utms.utm_medium || "",
     
     // 3. Engagement Metrics
-    session_duration: properties.session_duration !== undefined ? properties.session_duration : SESSION_DURATION,
-    scroll: properties.scroll !== undefined && properties.scroll !== 0 ? properties.scroll : liveScroll,
-    scroll_depth: properties.scroll_depth !== undefined && properties.scroll_depth !== 0 ? properties.scroll_depth : liveScroll,
-    video_duration: properties.video_duration !== undefined && properties.video_duration !== 0 ? properties.video_duration : liveVideo,
-    video_watch_time: properties.video_watch_time !== undefined && properties.video_watch_time !== 0 ? properties.video_watch_time : liveVideo,
+    session_duration: SESSION_DURATION,
+    scroll: Math.max(liveScroll, properties.scroll || 0),
+    scroll_depth: Math.max(liveScroll, properties.scroll_depth || 0),
+    video_duration: Math.max(Math.round(liveVideo), properties.video_duration || 0),
+    video_watch_time: Math.max(Math.round(liveVideo), properties.video_watch_time || 0),
     
     // 4. Environment & Context
     device: getDeviceType(),
@@ -233,10 +238,12 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
 
   // Try sendBeacon
   if (navigator.sendBeacon) {
-    const blob = new Blob([payload], { type: 'application/json' });
-    if (navigator.sendBeacon(url, blob)) {
-      return;
-    }
+    try {
+      const blob = new Blob([payload], { type: 'application/json' });
+      if (navigator.sendBeacon(url, blob)) {
+        return;
+      }
+    } catch (e) {}
   }
 
   // Fallback to fetch
@@ -248,36 +255,28 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
       credentials: 'omit',
       body: payload
     });
-    
-    if (response.ok) {
-      console.log('BidFlow Success (Service)');
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      console.warn('BidFlow Tracking Error:', error.message);
-    }
-  }
+  } catch (error) {}
 };
 
-// Scroll Depth Tracking
-let maxScroll = 0;
+// Simplified Scroll Depth Tracking - Using unified metrics
 if (typeof window !== 'undefined') {
   window.addEventListener('scroll', () => {
-    const scrollPercent = Math.round((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight * 100);
-    if (scrollPercent > maxScroll) {
-      maxScroll = scrollPercent;
-      if (maxScroll % 25 === 0) {
-        trackEvent('scroll_depth', { depth: maxScroll });
+    const h = document.documentElement;
+    const b = document.body;
+    const st = 'scrollTop';
+    const sh = 'scrollHeight';
+    const scrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+    
+    const metrics = (window as any).bidflow_metrics;
+    if (metrics && scrollPercent > metrics.maxScroll) {
+      metrics.maxScroll = scrollPercent;
+      if (metrics.maxScroll % 25 === 0) {
+        trackEvent('scroll_depth', { depth: metrics.maxScroll });
       }
     }
   });
 
-  // Session Duration Tracking
-  const startTime = Date.now();
-  window.addEventListener('beforeunload', () => {
-    const duration = Math.round((Date.now() - startTime) / 1000);
-    trackEvent('session_end', { duration: duration, max_scroll: maxScroll });
-  });
+  // Note: beforeunload session_end is now handled in index.html to avoid duplicate beacons
 }
 
 export const saveUserRegistration = async (userData: any) => {
@@ -302,14 +301,23 @@ export const saveUserRegistration = async (userData: any) => {
     let liveScroll = 0;
     let liveVideo = 0;
     if (typeof window !== 'undefined') {
-      const h = document.documentElement;
-      const b = document.body;
-      const st = 'scrollTop';
-      const sh = 'scrollHeight';
-      liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
-      
-      if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
-        liveVideo = window.bidflow.getVideoWatchTime();
+      const metrics = (window as any).bidflow_metrics;
+      if (metrics) {
+        liveScroll = metrics.maxScroll || 0;
+        liveVideo = metrics.totalVideoTime || 0;
+        if (metrics.videoStartTime > 0) {
+          liveVideo += (Date.now() - metrics.videoStartTime) / 1000;
+        }
+      } else {
+        const h = document.documentElement;
+        const b = document.body;
+        const st = 'scrollTop';
+        const sh = 'scrollHeight';
+        liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+        
+        if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
+          liveVideo = window.bidflow.getVideoWatchTime();
+        }
       }
     }
 
@@ -330,8 +338,8 @@ export const saveUserRegistration = async (userData: any) => {
       session_duration: SESSION_DURATION,
       scroll: liveScroll,
       scroll_depth: liveScroll,
-      video_duration: liveVideo,
-      video_watch_time: liveVideo,
+      video_duration: Math.round(liveVideo),
+      video_watch_time: Math.round(liveVideo),
       url: window.location.href,
       path: window.location.pathname
     });

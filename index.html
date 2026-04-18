@@ -93,70 +93,80 @@
       const BIDFLOW_API = "https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track";
       const SESSION_START = Date.now();
       window.SESSION_START = SESSION_START;
-      let videoStartTime = 0;
-      let totalVideoTime = 0;
-      let maxScroll = 0;
-      window.maxScroll = maxScroll;
-      let videoElement = null;
+      
+      // Global metrics object for all tracking services to share
+      window.bidflow_metrics = {
+        videoStartTime: 0,
+        totalVideoTime: 0,
+        maxScroll: 0,
+        videoElement: null
+      };
     
       function track(eventName, properties = {}) {
         const SESSION_DURATION = Math.floor((Date.now() - SESSION_START) / 1000);
         
-        // Get current scroll depth
+        // Update maxScroll one last time before calculating properties
         const h = document.documentElement;
         const b = document.body;
         const st = 'scrollTop';
         const sh = 'scrollHeight';
         const currentScrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
-        if (currentScrollPercent > maxScroll) maxScroll = currentScrollPercent;
-        
-        // Calculate current video watch time (including currently playing)
-        let liveVideoTime = totalVideoTime;
-        if (videoStartTime > 0) {
-          liveVideoTime += (Date.now() - videoStartTime) / 1000;
+        if (currentScrollPercent > window.bidflow_metrics.maxScroll) {
+          window.bidflow_metrics.maxScroll = currentScrollPercent;
         }
+        
+        // Calculate live video watch time
+        let liveVideoTime = window.bidflow_metrics.totalVideoTime;
+        if (window.bidflow_metrics.videoStartTime > 0) {
+          liveVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+        }
+
+        const calculatedProperties = {
+          // 1. Mandatory base data
+          email: properties.email || "",
+          role: properties.role || "",
+          timestamp: new Date().toISOString(),
+          
+          // 2. Traffic & UTM
+          utm_source: getParam('utm_source') || getReferrerSource() || "",
+          utm_campaign: getParam('utm_campaign') || "",
+          utm_medium: getParam('utm_medium') || "",
+          
+          // 3. Engagement Metrics
+          session_duration: SESSION_DURATION,
+          scroll: Math.max(window.bidflow_metrics.maxScroll, properties.scroll || 0),
+          scroll_depth: Math.max(window.bidflow_metrics.maxScroll, properties.scroll_depth || 0),
+          video_duration: Math.max(Math.round(liveVideoTime), properties.video_duration || 0),
+          video_watch_time: Math.max(Math.round(liveVideoTime), properties.video_watch_time || 0),
+          
+          // 4. Environment & Context
+          device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
+          language: navigator.language || "en",
+          location: properties.location || properties.city || "",
+          city: properties.city || properties.location || "",
+          url: window.location.href,
+          path: window.location.pathname
+        };
 
         const event = {
           event_name: eventName,
           timestamp: new Date().toISOString(),
           session_id: getSessionId(),
           properties: {
-            // 1. Mandatory base data
-            email: properties.email || "",
-            role: properties.role || "",
-            timestamp: new Date().toISOString(),
-            
-            // 2. Traffic & UTM
-            utm_source: getParam('utm_source') || getReferrerSource() || "",
-            utm_campaign: getParam('utm_campaign') || "",
-            utm_medium: getParam('utm_medium') || "",
-            
-            // 3. Engagement Metrics
-            session_duration: SESSION_DURATION,
-            // Send both variants for compatibility
-            scroll: maxScroll || 0,
-            scroll_depth: maxScroll || 0,
-            video_duration: Math.round(liveVideoTime) || 0,
-            video_watch_time: Math.round(liveVideoTime) || 0,
-            
-            // 4. Environment & Context
-            device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
-            language: navigator.language || "en",
-            location: properties.location || properties.city || "",
-            city: properties.city || properties.location || "",
-            url: window.location.href,
-            path: window.location.pathname,
-            
-            // Include any additional properties passed
-            ...properties
+            ...calculatedProperties,
+            ...properties // Explicit properties still take precedence if provided manually
           }
         };
         
         const payload = JSON.stringify(event);
 
         if (navigator.sendBeacon) {
-          const blob = new Blob([payload], { type: 'application/json' });
-          if (navigator.sendBeacon(BIDFLOW_API, blob)) return;
+          try {
+            const blob = new Blob([payload], { type: 'application/json' });
+            if (navigator.sendBeacon(BIDFLOW_API, blob)) return;
+          } catch (e) {
+            console.warn('sendBeacon failed, falling back to fetch');
+          }
         }
 
         fetch(BIDFLOW_API, {
@@ -202,60 +212,52 @@
           return;
         }
         
-        if (videoElement === video) return; // Already tracking this element
-        videoElement = video;
+        if (window.bidflow_metrics.videoElement === video) return; // Already tracking this element
+        window.bidflow_metrics.videoElement = video;
+        
+        console.log('Bidflow: Video element found, starting heartbeat tracking');
     
         const observer = new IntersectionObserver((entries) => {
           entries.forEach(entry => {
-            if (entry.isIntersecting && !video.paused) {
-              if (videoStartTime === 0) videoStartTime = Date.now();
-            } else {
-              if (videoStartTime > 0) {
-                totalVideoTime += (Date.now() - videoStartTime) / 1000;
-                videoStartTime = 0;
-              }
+            if (!entry.isIntersecting && window.bidflow_metrics.videoStartTime > 0) {
+              window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+              window.bidflow_metrics.videoStartTime = 0;
             }
           });
-        }, { threshold: 0.1 }); // More sensitive threshold
+        }, { threshold: 0.1 });
     
         observer.observe(video);
     
+        // Robust heartbeat: check every second if video is playing
+        setInterval(() => {
+          if (video && !video.paused && !video.seeking && video.readyState >= 2) {
+            // If it's the first heart beat since we started playing
+            if (window.bidflow_metrics.videoStartTime === 0) {
+              window.bidflow_metrics.videoStartTime = Date.now();
+            } else {
+              // Add the last second to total, and reset start time to now to keep it fresh
+              const now = Date.now();
+              window.bidflow_metrics.totalVideoTime += (now - window.bidflow_metrics.videoStartTime) / 1000;
+              window.bidflow_metrics.videoStartTime = now;
+            }
+          } else {
+            // If not playing, ensure we've flushed any pending time
+            if (window.bidflow_metrics.videoStartTime > 0) {
+              window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+              window.bidflow_metrics.videoStartTime = 0;
+            }
+          }
+        }, 1000);
+
         video.addEventListener('play', () => {
-          if (videoStartTime === 0) videoStartTime = Date.now();
+          if (window.bidflow_metrics.videoStartTime === 0) window.bidflow_metrics.videoStartTime = Date.now();
         });
     
         video.addEventListener('pause', () => {
-          if (videoStartTime > 0) {
-            totalVideoTime += (Date.now() - videoStartTime) / 1000;
-            videoStartTime = 0;
+          if (window.bidflow_metrics.videoStartTime > 0) {
+            window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+            window.bidflow_metrics.videoStartTime = 0;
           }
-        });
-
-        video.addEventListener('ended', () => {
-          if (videoStartTime > 0) {
-            totalVideoTime += (Date.now() - videoStartTime) / 1000;
-            videoStartTime = 0;
-          }
-        });
-    
-        // Final video stats on page leave
-        window.addEventListener('beforeunload', () => {
-          if (videoStartTime > 0) {
-            totalVideoTime += (Date.now() - videoStartTime) / 1000;
-          }
-          if (totalVideoTime > 2) { // Only track if watched more than 2 seconds
-            track('video_watch_time', { 
-              video_duration: Math.round(totalVideoTime),
-              watched_real: true 
-            });
-          }
-          
-          // Final session duration
-          const finalDuration = Math.floor((Date.now() - SESSION_START) / 1000);
-          track('session_end', { 
-            duration: finalDuration,
-            duration_segment: finalDuration > 9 ? '>9s' : '<9s'
-          });
         });
       }
     
@@ -267,36 +269,60 @@
           const st = 'scrollTop';
           const sh = 'scrollHeight';
           const scrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100);
-          if (scrollPercent > maxScroll) {
-            maxScroll = scrollPercent;
-            window.maxScroll = maxScroll;
-          }
-        });
-    
-        window.addEventListener('beforeunload', () => {
-          if (maxScroll > 5) { // Only track if meaningful scroll happened
-            track('scroll_depth', { scroll_depth: maxScroll, scroll: maxScroll });
+          if (scrollPercent > window.bidflow_metrics.maxScroll) {
+            window.bidflow_metrics.maxScroll = scrollPercent;
           }
         });
       }
     
       // Auto-track page view
-      track('script_initialized', { version: '1.3' });
+      track('script_initialized', { version: '1.5' });
       track('page_view_landing');
       
-      // Support periodic checks for the video element
+      // Periodic check for video and scroll init
       initVideoTracking();
-      setInterval(initVideoTracking, 5000);
-      
       initScrollTracking();
+      setInterval(initVideoTracking, 5000);
+
+      // Final stats on page leave - Consolidated
+      window.addEventListener('beforeunload', () => {
+        // Final video time update
+        if (window.bidflow_metrics.videoStartTime > 0) {
+          window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+          window.bidflow_metrics.videoStartTime = 0;
+        }
+
+        const totalVideo = Math.round(window.bidflow_metrics.totalVideoTime);
+        if (totalVideo > 2) {
+          track('video_watch_time', { 
+            video_duration: totalVideo,
+            watched_real: true 
+          });
+        }
+        
+        if (window.bidflow_metrics.maxScroll > 5) {
+          track('scroll_depth', { 
+            scroll_depth: window.bidflow_metrics.maxScroll, 
+            scroll: window.bidflow_metrics.maxScroll 
+          });
+        }
+
+        const finalDuration = Math.floor((Date.now() - SESSION_START) / 1000);
+        track('session_end', { 
+          duration: finalDuration,
+          duration_segment: finalDuration > 9 ? '>9s' : '<9s',
+          final_scroll: window.bidflow_metrics.maxScroll,
+          final_video: totalVideo
+        });
+      });
     
       // Global access for custom events
       window.bidflow = { 
         track,
         getVideoWatchTime: () => {
-          let liveVideoTime = totalVideoTime;
-          if (videoStartTime > 0) {
-            liveVideoTime += (Date.now() - videoStartTime) / 1000;
+          let liveVideoTime = window.bidflow_metrics.totalVideoTime;
+          if (window.bidflow_metrics.videoStartTime > 0) {
+            liveVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
           }
           return Math.round(liveVideoTime);
         },
