@@ -155,12 +155,14 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
   // Calculate live engagement metrics
   let liveScroll = 0;
   let liveVideo = 0;
+  let siteLang = 'en';
   if (typeof window !== 'undefined') {
     // Access the global metrics if defined in index.html
     const metrics = (window as any).bidflow_metrics;
     if (metrics) {
       liveScroll = metrics.maxScroll || 0;
       liveVideo = metrics.totalVideoTime || 0;
+      siteLang = metrics.lang || 'en';
       if (metrics.videoStartTime > 0) {
         liveVideo += (Date.now() - metrics.videoStartTime) / 1000;
       }
@@ -198,7 +200,7 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
     
     // 4. Environment & Context
     device: getDeviceType(),
-    language: navigator.language || 'en',
+    language: siteLang || properties.language || navigator.language || 'en',
     location: properties.location || properties.city || "",
     city: properties.city || properties.location || "",
     url: window.location.href,
@@ -300,11 +302,13 @@ export const saveUserRegistration = async (userData: any) => {
     // Calculate live engagement metrics
     let liveScroll = 0;
     let liveVideo = 0;
+    let siteLang = 'en';
     if (typeof window !== 'undefined') {
       const metrics = (window as any).bidflow_metrics;
       if (metrics) {
         liveScroll = metrics.maxScroll || 0;
         liveVideo = metrics.totalVideoTime || 0;
+        siteLang = metrics.lang || 'en';
         if (metrics.videoStartTime > 0) {
           liveVideo += (Date.now() - metrics.videoStartTime) / 1000;
         }
@@ -334,7 +338,7 @@ export const saveUserRegistration = async (userData: any) => {
       utm_campaign: utms.utm_campaign || "",
       utm_medium: utms.utm_medium || "",
       device: getDeviceType(),
-      language: navigator.language || 'en',
+      language: siteLang || navigator.language || 'en',
       session_duration: SESSION_DURATION,
       scroll: liveScroll,
       scroll_depth: liveScroll,

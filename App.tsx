@@ -21,6 +21,13 @@ import { trackEvent, saveUserRegistration, subscribeToCounters, initializeCounte
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [lang, setLang] = useState<Language>('en');
+
+  // Sync language with global tracking metrics
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).bidflow_metrics) {
+      (window as any).bidflow_metrics.lang = lang;
+    }
+  }, [lang]);
   
   // Real-time counts from Firebase
   const [buyersCount, setBuyersCount] = useState(0); // Start from 0 as requested

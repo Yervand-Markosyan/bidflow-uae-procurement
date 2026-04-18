@@ -99,7 +99,8 @@
         videoStartTime: 0,
         totalVideoTime: 0,
         maxScroll: 0,
-        videoElement: null
+        videoElement: null,
+        lang: 'en'
       };
     
       function track(eventName, properties = {}) {
@@ -141,7 +142,7 @@
           
           // 4. Environment & Context
           device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
-          language: navigator.language || "en",
+          language: window.bidflow_metrics.lang || properties.language || navigator.language || "en",
           location: properties.location || properties.city || "",
           city: properties.city || properties.location || "",
           url: window.location.href,
@@ -202,63 +203,54 @@
         return 'Organic_Referral';
       }
     
-      // Video Tracking with IntersectionObserver to avoid autoplay false positives
-      function initVideoTracking(retryCount = 0) {
-        const video = document.querySelector('video');
-        if (!video) {
-          if (retryCount < 20) {
-            setTimeout(() => initVideoTracking(retryCount + 1), 1000);
-          }
-          return;
-        }
+      // Video Tracking - Single global heartbeat for reliability
+      function startGlobalVideoHeartbeat() {
+        if (window.videoHeartbeatStarted) return;
+        window.videoHeartbeatStarted = true;
         
-        if (window.bidflow_metrics.videoElement === video) return; // Already tracking this element
-        window.bidflow_metrics.videoElement = video;
+        console.log('Bidflow: Starting global video heartbeat monitor');
         
-        console.log('Bidflow: Video element found, starting heartbeat tracking');
-    
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (!entry.isIntersecting && window.bidflow_metrics.videoStartTime > 0) {
+        setInterval(() => {
+          // Find the active video element (if any)
+          const video = document.querySelector('video');
+          
+          if (!video) {
+            // Flush any current watch time if video disappeared
+            if (window.bidflow_metrics.videoStartTime > 0) {
               window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
               window.bidflow_metrics.videoStartTime = 0;
             }
-          });
-        }, { threshold: 0.1 });
-    
-        observer.observe(video);
-    
-        // Robust heartbeat: check every second if video is playing
-        setInterval(() => {
+            return;
+          }
+          
+          // Detect if video element changed (React re-render)
+          if (window.bidflow_metrics.videoElement !== video) {
+            window.bidflow_metrics.videoElement = video;
+            console.log('Bidflow: Video element detected/changed');
+          }
+
+          // Check if video is actually playing
           if (video && !video.paused && !video.seeking && video.readyState >= 2) {
-            // If it's the first heart beat since we started playing
             if (window.bidflow_metrics.videoStartTime === 0) {
               window.bidflow_metrics.videoStartTime = Date.now();
             } else {
-              // Add the last second to total, and reset start time to now to keep it fresh
               const now = Date.now();
-              window.bidflow_metrics.totalVideoTime += (now - window.bidflow_metrics.videoStartTime) / 1000;
+              const delta = (now - window.bidflow_metrics.videoStartTime) / 1000;
+              window.bidflow_metrics.totalVideoTime += delta;
               window.bidflow_metrics.videoStartTime = now;
+              
+              // Periodic heart-beat log for debugging (every 5 seconds of watching)
+              if (Math.floor(window.bidflow_metrics.totalVideoTime) % 5 === 0 && delta > 0) {
+                 console.log(`Bidflow: Watch time progress: ${Math.round(window.bidflow_metrics.totalVideoTime)}s`);
+              }
             }
           } else {
-            // If not playing, ensure we've flushed any pending time
             if (window.bidflow_metrics.videoStartTime > 0) {
               window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
               window.bidflow_metrics.videoStartTime = 0;
             }
           }
         }, 1000);
-
-        video.addEventListener('play', () => {
-          if (window.bidflow_metrics.videoStartTime === 0) window.bidflow_metrics.videoStartTime = Date.now();
-        });
-    
-        video.addEventListener('pause', () => {
-          if (window.bidflow_metrics.videoStartTime > 0) {
-            window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
-            window.bidflow_metrics.videoStartTime = 0;
-          }
-        });
       }
     
       // Scroll Tracking
@@ -276,13 +268,12 @@
       }
     
       // Auto-track page view
-      track('script_initialized', { version: '1.5' });
+      track('script_initialized', { version: '2.0' });
       track('page_view_landing');
       
-      // Periodic check for video and scroll init
-      initVideoTracking();
+      // Initialize systems
+      startGlobalVideoHeartbeat();
       initScrollTracking();
-      setInterval(initVideoTracking, 5000);
 
       // Final stats on page leave - Consolidated
       window.addEventListener('beforeunload', () => {
