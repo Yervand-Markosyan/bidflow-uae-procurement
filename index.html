@@ -92,25 +92,52 @@
     (function() {
       const BIDFLOW_API = "https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track";
       const SESSION_START = Date.now();
+      window.SESSION_START = SESSION_START;
       let videoWatched = false;
       let videoStartTime = 0;
       let totalVideoTime = 0;
       let lastHeartbeat = Date.now();
     
       function track(eventName, properties = {}) {
+        const SESSION_DURATION = Math.floor((Date.now() - SESSION_START) / 1000);
+        
+        // Get current scroll depth
+        const h = document.documentElement;
+        const b = document.body;
+        const st = 'scrollTop';
+        const sh = 'scrollHeight';
+        const currentScrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+
         const event = {
           event_name: eventName,
           timestamp: new Date().toISOString(),
           session_id: getSessionId(),
           properties: {
-            ...properties,
-            utm_source: getParam('utm_source') || getReferrerSource(),
-            utm_campaign: getParam('utm_campaign'),
-            utm_medium: getParam('utm_medium'),
+            // 1. Mandatory base data
+            email: properties.email || "",
+            role: properties.role || "",
+            timestamp: new Date().toISOString(),
+            
+            // 2. Traffic & UTM
+            utm_source: getParam('utm_source') || getReferrerSource() || "",
+            utm_campaign: getParam('utm_campaign') || "",
+            utm_medium: getParam('utm_medium') || "",
+            
+            // 3. Engagement Metrics
+            session_duration: SESSION_DURATION,
+            scroll_depth: properties.scroll_depth !== undefined ? properties.scroll_depth : (currentScrollPercent || 0),
+            video_watch_time: properties.video_watch_time !== undefined ? properties.video_watch_time : (Math.round(totalVideoTime) || 0),
+            
+            // 4. Environment & Context
             device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
-            language: navigator.language.startsWith('ar') ? 'AR' : 'EN',
-            session_duration: Math.floor((Date.now() - SESSION_START) / 1000),
-            page_url: window.location.href
+            language: navigator.language || "en",
+            location: properties.location || properties.city || "",
+            city: properties.city || properties.location || "",
+            url: window.location.href,
+            path: window.location.pathname,
+            
+            // Include any additional properties passed
+            ...properties
           }
         };
         

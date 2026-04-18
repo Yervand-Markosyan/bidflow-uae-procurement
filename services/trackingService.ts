@@ -149,9 +149,53 @@ const cleanData = (data: any): any => {
 };
 
 export const trackEvent = async (eventName: string, properties: TrackingProperties = {}) => {
-  // If the global tracking script is available, use it for consistency (handles UTMs, sessions, etc.)
+  const SESSION_DURATION = Math.floor((Date.now() - (typeof window !== 'undefined' ? (window as any).SESSION_START || Date.now() : Date.now())) / 1000);
+  const utms = getUTMParams();
+  
+  const standardizedProperties = {
+    // 1. Mandatory base data
+    email: properties.email || "",
+    role: properties.role || "",
+    timestamp: new Date().toISOString(),
+    
+    // 2. Traffic & UTM
+    utm_source: utms.utm_source || "",
+    utm_campaign: utms.utm_campaign || "",
+    utm_medium: utms.utm_medium || "",
+    
+    // 3. Engagement Metrics
+    session_duration: properties.session_duration !== undefined ? properties.session_duration : SESSION_DURATION,
+    scroll_depth: properties.scroll_depth !== undefined ? properties.scroll_depth : 0,
+    video_watch_time: properties.video_watch_time !== undefined ? properties.video_watch_time : 0,
+    
+    // 4. Environment & Context
+    device: getDeviceType(),
+    language: navigator.language || 'en',
+    location: properties.location || properties.city || "",
+    city: properties.city || properties.location || "",
+    url: window.location.href,
+    path: window.location.pathname,
+    
+    ...properties
+  };
+
+  // Log to Firestore as explicitly requested
+  try {
+    const eventsRef = collection(db, 'events');
+    await addDoc(eventsRef, {
+      event_name: eventName,
+      timestamp: new Date().toISOString(),
+      firestore_timestamp: serverTimestamp(),
+      session_id: sessionStorage.getItem('bf_sid') || "unknown",
+      properties: standardizedProperties
+    });
+  } catch (e) {
+    console.warn('Failed to log event to Firestore:', e);
+  }
+
+  // If the global tracking script is available, use it as well
   if (window.bidflow && typeof window.bidflow.track === 'function') {
-    window.bidflow.track(eventName, properties);
+    window.bidflow.track(eventName, standardizedProperties);
     return;
   }
 
@@ -161,14 +205,7 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
     timestamp: new Date().toISOString(),
     session_id: sessionStorage.getItem('bf_sid') || 
                (s => (sessionStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
-    properties: {
-      ...properties,
-      url: window.location.href,
-      referrer: document.referrer,
-      ua: navigator.userAgent,
-      device: getDeviceType(),
-      language: navigator.language || 'en',
-    }
+    properties: standardizedProperties
   });
 
   // Try sendBeacon
@@ -236,15 +273,25 @@ export const saveUserRegistration = async (userData: any) => {
     const uniqueCode = await getUniqueCode();
 
     const utms = getUTMParams();
+    const SESSION_DURATION = Math.floor((Date.now() - (typeof window !== 'undefined' ? (window as any).SESSION_START || Date.now() : Date.now())) / 1000);
+    
     const data = cleanData({
       ...userData,
       email: email, 
       code: uniqueCode,
       timestamp: new Date().toISOString(),
       firestore_timestamp: serverTimestamp(),
-      session_id: SESSION_ID,
-      utm_source: utms.utm_source,
-      utm_campaign: utms.utm_campaign,
+      session_id: sessionStorage.getItem('bf_sid') || SESSION_ID,
+      
+      // Standardized properties for dashboard
+      utm_source: utms.utm_source || "",
+      utm_campaign: utms.utm_campaign || "",
+      utm_medium: utms.utm_medium || "",
+      device: getDeviceType(),
+      language: navigator.language || 'en',
+      session_duration: SESSION_DURATION,
+      url: window.location.href,
+      path: window.location.pathname
     });
 
     await setDoc(userRef, data);

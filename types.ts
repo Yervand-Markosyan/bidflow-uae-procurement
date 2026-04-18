@@ -27,6 +27,7 @@ export interface SupplierDemoData {
 
 declare global {
   interface Window {
+    SESSION_START: number;
     bidflow: {
       track: (eventName: string, properties?: any) => void;
       trackEarlyAccess: (email: string, role: string) => void;
