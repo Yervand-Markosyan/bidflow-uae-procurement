@@ -93,10 +93,10 @@
       const BIDFLOW_API = "https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track";
       const SESSION_START = Date.now();
       window.SESSION_START = SESSION_START;
-      let videoWatched = false;
       let videoStartTime = 0;
       let totalVideoTime = 0;
-      let lastHeartbeat = Date.now();
+      let maxScroll = 0;
+      window.maxScroll = maxScroll;
     
       function track(eventName, properties = {}) {
         const SESSION_DURATION = Math.floor((Date.now() - SESSION_START) / 1000);
@@ -107,6 +107,7 @@
         const st = 'scrollTop';
         const sh = 'scrollHeight';
         const currentScrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+        if (currentScrollPercent > maxScroll) maxScroll = currentScrollPercent;
         
         // Calculate current video watch time (including currently playing)
         let liveVideoTime = totalVideoTime;
@@ -131,8 +132,11 @@
             
             // 3. Engagement Metrics
             session_duration: SESSION_DURATION,
-            scroll_depth: properties.scroll_depth !== undefined && properties.scroll_depth !== 0 ? properties.scroll_depth : currentScrollPercent,
-            video_watch_time: properties.video_watch_time !== undefined && properties.video_watch_time !== 0 ? properties.video_watch_time : Math.round(liveVideoTime),
+            // Send both variants for compatibility
+            scroll: maxScroll || 0,
+            scroll_depth: maxScroll || 0,
+            video_duration: Math.round(liveVideoTime) || 0,
+            video_watch_time: Math.round(liveVideoTime) || 0,
             
             // 4. Environment & Context
             device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
@@ -241,7 +245,6 @@
     
       // Scroll Tracking
       function initScrollTracking() {
-        let maxScroll = 0;
         window.addEventListener('scroll', () => {
           const h = document.documentElement;
           const b = document.body;
@@ -250,12 +253,13 @@
           const scrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100);
           if (scrollPercent > maxScroll) {
             maxScroll = scrollPercent;
+            window.maxScroll = maxScroll;
           }
         });
     
         window.addEventListener('beforeunload', () => {
           if (maxScroll > 5) { // Only track if meaningful scroll happened
-            track('scroll_depth', { scroll_depth: maxScroll });
+            track('scroll_depth', { scroll_depth: maxScroll, scroll: maxScroll });
           }
         });
       }

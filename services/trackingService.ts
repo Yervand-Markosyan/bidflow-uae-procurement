@@ -156,11 +156,17 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
   let liveScroll = 0;
   let liveVideo = 0;
   if (typeof window !== 'undefined') {
-    const h = document.documentElement;
-    const b = document.body;
-    const st = 'scrollTop';
-    const sh = 'scrollHeight';
-    liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+    // Access the global maxScroll if defined in index.html
+    liveScroll = (window as any).maxScroll || 0;
+    
+    // If global maxScroll is 0 or undefined, calculate current
+    if (!liveScroll) {
+      const h = document.documentElement;
+      const b = document.body;
+      const st = 'scrollTop';
+      const sh = 'scrollHeight';
+      liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+    }
     
     if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
       liveVideo = window.bidflow.getVideoWatchTime();
@@ -180,7 +186,9 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
     
     // 3. Engagement Metrics
     session_duration: properties.session_duration !== undefined ? properties.session_duration : SESSION_DURATION,
+    scroll: properties.scroll !== undefined && properties.scroll !== 0 ? properties.scroll : liveScroll,
     scroll_depth: properties.scroll_depth !== undefined && properties.scroll_depth !== 0 ? properties.scroll_depth : liveScroll,
+    video_duration: properties.video_duration !== undefined && properties.video_duration !== 0 ? properties.video_duration : liveVideo,
     video_watch_time: properties.video_watch_time !== undefined && properties.video_watch_time !== 0 ? properties.video_watch_time : liveVideo,
     
     // 4. Environment & Context
@@ -320,7 +328,9 @@ export const saveUserRegistration = async (userData: any) => {
       device: getDeviceType(),
       language: navigator.language || 'en',
       session_duration: SESSION_DURATION,
+      scroll: liveScroll,
       scroll_depth: liveScroll,
+      video_duration: liveVideo,
       video_watch_time: liveVideo,
       url: window.location.href,
       path: window.location.pathname
