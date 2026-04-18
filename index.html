@@ -107,6 +107,12 @@
         const st = 'scrollTop';
         const sh = 'scrollHeight';
         const currentScrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+        
+        // Calculate current video watch time (including currently playing)
+        let liveVideoTime = totalVideoTime;
+        if (videoStartTime > 0) {
+          liveVideoTime += (Date.now() - videoStartTime) / 1000;
+        }
 
         const event = {
           event_name: eventName,
@@ -125,8 +131,8 @@
             
             // 3. Engagement Metrics
             session_duration: SESSION_DURATION,
-            scroll_depth: properties.scroll_depth !== undefined ? properties.scroll_depth : (currentScrollPercent || 0),
-            video_watch_time: properties.video_watch_time !== undefined ? properties.video_watch_time : (Math.round(totalVideoTime) || 0),
+            scroll_depth: properties.scroll_depth !== undefined && properties.scroll_depth !== 0 ? properties.scroll_depth : currentScrollPercent,
+            video_watch_time: properties.video_watch_time !== undefined && properties.video_watch_time !== 0 ? properties.video_watch_time : Math.round(liveVideoTime),
             
             // 4. Environment & Context
             device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
@@ -263,6 +269,13 @@
       // Global access for custom events
       window.bidflow = { 
         track,
+        getVideoWatchTime: () => {
+          let liveVideoTime = totalVideoTime;
+          if (videoStartTime > 0) {
+            liveVideoTime += (Date.now() - videoStartTime) / 1000;
+          }
+          return Math.round(liveVideoTime);
+        },
         // Helper for early access
         trackEarlyAccess: (email, role) => {
           track('early_access_signup', { email, role });

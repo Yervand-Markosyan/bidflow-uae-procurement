@@ -30,6 +30,7 @@ declare global {
     SESSION_START: number;
     bidflow: {
       track: (eventName: string, properties?: any) => void;
+      getVideoWatchTime: () => number;
       trackEarlyAccess: (email: string, role: string) => void;
       trackSupplier: (step: number, data?: any) => void;
       trackBuyer: (step: number, data?: any) => void;

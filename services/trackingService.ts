@@ -152,6 +152,21 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
   const SESSION_DURATION = Math.floor((Date.now() - (typeof window !== 'undefined' ? (window as any).SESSION_START || Date.now() : Date.now())) / 1000);
   const utms = getUTMParams();
   
+  // Calculate live engagement metrics
+  let liveScroll = 0;
+  let liveVideo = 0;
+  if (typeof window !== 'undefined') {
+    const h = document.documentElement;
+    const b = document.body;
+    const st = 'scrollTop';
+    const sh = 'scrollHeight';
+    liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+    
+    if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
+      liveVideo = window.bidflow.getVideoWatchTime();
+    }
+  }
+
   const standardizedProperties = {
     // 1. Mandatory base data
     email: properties.email || "",
@@ -165,8 +180,8 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
     
     // 3. Engagement Metrics
     session_duration: properties.session_duration !== undefined ? properties.session_duration : SESSION_DURATION,
-    scroll_depth: properties.scroll_depth !== undefined ? properties.scroll_depth : 0,
-    video_watch_time: properties.video_watch_time !== undefined ? properties.video_watch_time : 0,
+    scroll_depth: properties.scroll_depth !== undefined && properties.scroll_depth !== 0 ? properties.scroll_depth : liveScroll,
+    video_watch_time: properties.video_watch_time !== undefined && properties.video_watch_time !== 0 ? properties.video_watch_time : liveVideo,
     
     // 4. Environment & Context
     device: getDeviceType(),
@@ -275,6 +290,21 @@ export const saveUserRegistration = async (userData: any) => {
     const utms = getUTMParams();
     const SESSION_DURATION = Math.floor((Date.now() - (typeof window !== 'undefined' ? (window as any).SESSION_START || Date.now() : Date.now())) / 1000);
     
+    // Calculate live engagement metrics
+    let liveScroll = 0;
+    let liveVideo = 0;
+    if (typeof window !== 'undefined') {
+      const h = document.documentElement;
+      const b = document.body;
+      const st = 'scrollTop';
+      const sh = 'scrollHeight';
+      liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+      
+      if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
+        liveVideo = window.bidflow.getVideoWatchTime();
+      }
+    }
+
     const data = cleanData({
       ...userData,
       email: email, 
@@ -290,6 +320,8 @@ export const saveUserRegistration = async (userData: any) => {
       device: getDeviceType(),
       language: navigator.language || 'en',
       session_duration: SESSION_DURATION,
+      scroll_depth: liveScroll,
+      video_watch_time: liveVideo,
       url: window.location.href,
       path: window.location.pathname
     });
