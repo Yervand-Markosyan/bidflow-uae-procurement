@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Language } from '../types';
+import { trackEvent } from '../services/trackingService';
 
 interface FooterProps {
   onNavigate: (id: string) => void;
@@ -38,6 +39,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
     }
   }[lang];
 
+  const handleSocialClick = (platform: 'linkedin' | 'instagram') => {
+    trackEvent(`footer_${platform}_click`, { language: lang });
+  };
+
   return (
     <footer className="w-full py-12 px-6 md:px-20 border-t border-slate-100 bg-white">
       <div className="container mx-auto">
@@ -69,16 +74,32 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, lang }) => {
             <h4 className="text-xs font-black text-brand-slate uppercase tracking-widest">{t.contact}</h4>
             <ul className="space-y-4">
               <li>
-                <a href="mailto:info@bidflow.ae" className="text-slate-500 hover:text-brand-blue transition-colors font-medium">
+                <a 
+                  href="mailto:info@bidflow.ae" 
+                  onClick={() => trackEvent('footer_email_click', { language: lang })}
+                  className="text-slate-500 hover:text-brand-blue transition-colors font-medium"
+                >
                   info@bidflow.ae
                 </a>
               </li>
               <li>
                 <div className="flex items-center gap-6 pt-2">
-                  <a href="https://www.linkedin.com/company/bidflow%E2%80%A4ae/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-slate transition-colors">
+                  <a 
+                    href="https://www.linkedin.com/company/bidflow%E2%80%A4ae/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onClick={() => handleSocialClick('linkedin')}
+                    className="text-slate-400 hover:text-brand-slate transition-colors"
+                  >
                     <span className="text-xs font-bold uppercase tracking-widest">{t.li}</span>
                   </a>
-                  <a href="https://www.instagram.com/bidflow.uae" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-slate transition-colors">
+                  <a 
+                    href="https://www.instagram.com/bidflow.uae" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onClick={() => handleSocialClick('instagram')}
+                    className="text-slate-400 hover:text-brand-slate transition-colors"
+                  >
                     <span className="text-xs font-bold uppercase tracking-widest">{t.ig}</span>
                   </a>
                 </div>
