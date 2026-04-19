@@ -24,8 +24,12 @@ const App: React.FC = () => {
 
   // Sync language with global tracking metrics
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).bidflow_metrics) {
-      (window as any).bidflow_metrics.lang = lang;
+    if (typeof window !== 'undefined') {
+      if ((window as any).bidflow_metrics) {
+        (window as any).bidflow_metrics.lang = lang;
+      }
+      // Expose trackEvent to global window for index.html scripts
+      (window as any).bidflow_trackEvent = trackEvent;
     }
   }, [lang]);
   

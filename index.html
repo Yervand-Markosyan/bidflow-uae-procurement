@@ -94,83 +94,77 @@
       const SESSION_START = Date.now();
       window.SESSION_START = SESSION_START;
       
-      // Global metrics object for all tracking services to share
+      // Global metrics object with SessionStorage persistence
       window.bidflow_metrics = {
         videoStartTime: 0,
-        totalVideoTime: 0,
-        maxScroll: 0,
+        totalVideoTime: parseFloat(sessionStorage.getItem('bf_video_time') || '0'),
+        maxScroll: parseInt(sessionStorage.getItem('bf_scroll') || '0'),
         videoElement: null,
         lang: 'en',
         lastPos: -1
       };
     
       function track(eventName, properties = {}) {
-        const SESSION_DURATION = Math.floor((Date.now() - SESSION_START) / 1000);
-        
-        // Update maxScroll one last time before calculating properties
+        // 1. Force recalculate live metrics
         const h = document.documentElement;
         const b = document.body;
         const st = 'scrollTop';
         const sh = 'scrollHeight';
         const currentScrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
+        
         if (currentScrollPercent > window.bidflow_metrics.maxScroll) {
           window.bidflow_metrics.maxScroll = currentScrollPercent;
+          sessionStorage.setItem('bf_scroll', window.bidflow_metrics.maxScroll);
         }
         
-        // Calculate live video watch time
         let liveVideoTime = window.bidflow_metrics.totalVideoTime;
         if (window.bidflow_metrics.videoStartTime > 0) {
           liveVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
         }
 
+        // 2. Prepare standardized properties (matches trackingService.ts logic)
+        const SESSION_DURATION = Math.floor((Date.now() - SESSION_START) / 1000);
         const calculatedProperties = {
-          // 1. Mandatory base data
           email: properties.email || "",
           role: properties.role || "",
           timestamp: new Date().toISOString(),
-          
-          // 2. Traffic & UTM
           utm_source: getParam('utm_source') || getReferrerSource() || "",
           utm_campaign: getParam('utm_campaign') || "",
           utm_medium: getParam('utm_medium') || "",
-          
-          // 3. Engagement Metrics - Force numeric and never overwrite with 0 if we have a value
           session_duration: SESSION_DURATION,
           scroll: Math.max(Number(window.bidflow_metrics.maxScroll), Number(properties.scroll || 0)),
           scroll_depth: Math.max(Number(window.bidflow_metrics.maxScroll), Number(properties.scroll_depth || 0)),
           video_duration: Math.max(Math.round(liveVideoTime), Number(properties.video_duration || 0)),
           video_watch_time: Math.max(Math.round(liveVideoTime), Number(properties.video_watch_time || 0)),
-          
-          // 4. Environment & Context
           device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
           language: window.bidflow_metrics.lang || properties.language || navigator.language || "en",
-          location: properties.location || properties.city || "",
-          city: properties.city || properties.location || "",
           url: window.location.href,
           path: window.location.pathname
         };
 
+        const mergedProperties = { ...calculatedProperties, ...properties };
+
+        // 3. Unify: Prefer Firestore via React's exposed trackEvent, fallback to direct API
+        if (window.bidflow_trackEvent && typeof window.bidflow_trackEvent === 'function') {
+           window.bidflow_trackEvent(eventName, mergedProperties);
+           return; 
+        }
+
+        // Direct API fallback (for early events or if React fails)
         const event = {
           event_name: eventName,
           timestamp: new Date().toISOString(),
           session_id: getSessionId(),
-          properties: {
-            ...calculatedProperties,
-            ...properties // Explicit properties still take precedence, but metrics are protected by Math.max above
-          }
+          properties: mergedProperties
         };
         
         const payload = JSON.stringify(event);
-
         if (navigator.sendBeacon) {
           try {
             const blob = new Blob([payload], { type: 'application/json' });
             if (navigator.sendBeacon(BIDFLOW_API, blob)) return;
-          } catch (e) {
-            console.warn('sendBeacon failed, falling back to fetch');
-          }
+          } catch (e) {}
         }
-
         fetch(BIDFLOW_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -178,7 +172,7 @@
           keepalive: true,
           mode: 'cors',
           credentials: 'omit'
-        }).catch(err => console.error('Bidflow tracking failed', err));
+        }).catch(() => {});
       }
     
       function getSessionId() {
@@ -209,9 +203,9 @@
         if (window.videoHeartbeatStarted) return;
         window.videoHeartbeatStarted = true;
         
-        console.log('Bidflow: Starting global video monitor v2.2 (High-Frequency Autoplay Guard)');
+        console.log('Bidflow: Starting global video monitor v2.3 (Persistent & Unified)');
         
-        // Layer 1: High-frequency heartbeat (500ms) to catch quick interactions and autoplay
+        // Layer 1: High-frequency heartbeat (500ms)
         setInterval(() => {
           const video = document.querySelector('video');
           if (!video) {
@@ -221,10 +215,8 @@
           
           if (window.bidflow_metrics.videoElement !== video) {
             window.bidflow_metrics.videoElement = video;
-            console.log('Bidflow: Tracking video element');
           }
 
-          // More aggressive check: Is it not paused AND is the time actually moving?
           const currentPos = video.currentTime;
           const isMoving = window.bidflow_metrics.lastPos !== currentPos;
           window.bidflow_metrics.lastPos = currentPos;
@@ -236,6 +228,7 @@
               const now = Date.now();
               const delta = (now - window.bidflow_metrics.videoStartTime) / 1000;
               window.bidflow_metrics.totalVideoTime += delta;
+              sessionStorage.setItem('bf_video_time', window.bidflow_metrics.totalVideoTime.toString());
               window.bidflow_metrics.videoStartTime = now;
             }
           } else {
@@ -243,7 +236,7 @@
           }
         }, 500);
 
-        // Layer 2: Periodic Pings (Every 15s)
+        // Layer 2: Periodic Pings (Every 20s) - Firestore logging
         setInterval(() => {
           const totalVideo = Math.round(window.bidflow_metrics.totalVideoTime);
           if (totalVideo > 0) {
@@ -252,9 +245,9 @@
               active_watching: window.bidflow_metrics.videoStartTime > 0
             });
           }
-        }, 15000);
+        }, 20000);
 
-        // Layer 3: Visibility Change (Flush when tab hidden)
+        // Layer 3: Visibility Change
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'hidden') {
             flushVideoTime();
@@ -268,6 +261,7 @@
         function flushVideoTime() {
           if (window.bidflow_metrics.videoStartTime > 0) {
             window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+            sessionStorage.setItem('bf_video_time', window.bidflow_metrics.totalVideoTime.toString());
             window.bidflow_metrics.videoStartTime = 0;
           }
         }
@@ -283,17 +277,18 @@
           const scrollPercent = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100);
           if (scrollPercent > window.bidflow_metrics.maxScroll) {
             window.bidflow_metrics.maxScroll = scrollPercent;
+            sessionStorage.setItem('bf_scroll', window.bidflow_metrics.maxScroll);
           }
         });
       }
     
-      // Initialize systems BEFORE first track if possible (but heartbeat needs DOM)
+      // Initialize systems
       startGlobalVideoHeartbeat();
       initScrollTracking();
 
-      // Auto-track page view after systems start
-      track('script_initialized', { version: '2.2' });
-      track('page_view_landing');
+      // Auto-track page view (Unified)
+      track('script_initialized', { version: '2.3' });
+      // Removed redundant page_view_landing here as App.tsx handles it now via unified trackEvent
 
       // Final stats on page leave - Consolidated
       window.addEventListener('beforeunload', () => {

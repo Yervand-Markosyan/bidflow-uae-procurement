@@ -148,16 +148,32 @@ const cleanData = (data: any): any => {
   return cleaned;
 };
 
+// Constants
+const SESSION_START_TIME = typeof window !== 'undefined' ? (window as any).SESSION_START || Date.now() : Date.now();
+
+// Helper to get consistent Session ID across all scripts
+const getBFSessionId = () => {
+  if (typeof window === 'undefined') return "server";
+  let sid = sessionStorage.getItem('bf_sid');
+  if (!sid) {
+    sid = 's_' + Math.random().toString(36).substr(2, 9);
+    sessionStorage.setItem('bf_sid', sid);
+  }
+  return sid;
+};
+
+// ... (cleanData helper remains the same)
+
 export const trackEvent = async (eventName: string, properties: TrackingProperties = {}) => {
-  const SESSION_DURATION = Math.floor((Date.now() - (typeof window !== 'undefined' ? (window as any).SESSION_START || Date.now() : Date.now())) / 1000);
+  const SESSION_DURATION = Math.floor((Date.now() - SESSION_START_TIME) / 1000);
   const utms = getUTMParams();
   
-  // Calculate live engagement metrics
+  // Calculate live engagement metrics from unified persistent object
   let liveScroll = 0;
   let liveVideo = 0;
   let siteLang = 'en';
+  
   if (typeof window !== 'undefined') {
-    // Access the global metrics if defined in index.html
     const metrics = (window as any).bidflow_metrics;
     if (metrics) {
       liveScroll = metrics.maxScroll || 0;
@@ -166,98 +182,65 @@ export const trackEvent = async (eventName: string, properties: TrackingProperti
       if (metrics.videoStartTime > 0) {
         liveVideo += (Date.now() - metrics.videoStartTime) / 1000;
       }
-    } else {
-      // Fallback calculation if metrics object is missing
-      const h = document.documentElement;
-      const b = document.body;
-      const st = 'scrollTop';
-      const sh = 'scrollHeight';
-      liveScroll = Math.round((h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight) * 100) || 0;
-      
-      if (window.bidflow && typeof window.bidflow.getVideoWatchTime === 'function') {
-        liveVideo = window.bidflow.getVideoWatchTime();
-      }
     }
   }
 
   const standardizedProperties = {
-    // 1. Mandatory base data
     email: properties.email || "",
     role: properties.role || "",
     timestamp: new Date().toISOString(),
-    
-    // 2. Traffic & UTM
     utm_source: utms.utm_source || "",
     utm_campaign: utms.utm_campaign || "",
     utm_medium: utms.utm_medium || "",
-    
-    // 3. Engagement Metrics
     session_duration: SESSION_DURATION,
-    scroll: Math.max(liveScroll, properties.scroll || 0),
-    scroll_depth: Math.max(liveScroll, properties.scroll_depth || 0),
-    video_duration: Math.max(Math.round(liveVideo), properties.video_duration || 0),
-    video_watch_time: Math.max(Math.round(liveVideo), properties.video_watch_time || 0),
-    
-    // 4. Environment & Context
+    scroll: Math.max(Math.round(liveScroll), Number(properties.scroll || 0)),
+    scroll_depth: Math.max(Math.round(liveScroll), Number(properties.scroll_depth || 0)),
+    video_duration: Math.max(Math.round(liveVideo), Number(properties.video_duration || 0)),
+    video_watch_time: Math.max(Math.round(liveVideo), Number(properties.video_watch_time || 0)),
     device: getDeviceType(),
     language: siteLang || properties.language || navigator.language || 'en',
-    location: properties.location || properties.city || "",
-    city: properties.city || properties.location || "",
     url: window.location.href,
     path: window.location.pathname,
-    
     ...properties
   };
 
-  // Log to Firestore as explicitly requested
+  const sessionId = getBFSessionId();
+
+  // Log to Firestore (The "Admin" source)
   try {
     const eventsRef = collection(db, 'events');
     await addDoc(eventsRef, {
       event_name: eventName,
       timestamp: new Date().toISOString(),
       firestore_timestamp: serverTimestamp(),
-      session_id: sessionStorage.getItem('bf_sid') || "unknown",
+      session_id: sessionId,
       properties: standardizedProperties
     });
   } catch (e) {
     console.warn('Failed to log event to Firestore:', e);
   }
 
-  // If the global tracking script is available, use it as well
-  if (window.bidflow && typeof window.bidflow.track === 'function') {
-    window.bidflow.track(eventName, standardizedProperties);
-    return;
-  }
-
-  const url = 'https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
+  // Also send to direct API for secondary analytics
+  const BIDFLOW_API = 'https://ais-pre-ntazh4dq53lpfbniqopixv-81264801679.europe-west3.run.app/api/track';
   const payload = JSON.stringify({
     event_name: eventName,
     timestamp: new Date().toISOString(),
-    session_id: sessionStorage.getItem('bf_sid') || 
-               (s => (sessionStorage.setItem('bf_sid', s), s))('s_' + Math.random().toString(36).substr(2, 9)),
+    session_id: sessionId,
     properties: standardizedProperties
   });
 
-  // Try sendBeacon
-  if (navigator.sendBeacon) {
-    try {
-      const blob = new Blob([payload], { type: 'application/json' });
-      if (navigator.sendBeacon(url, blob)) {
-        return;
-      }
-    } catch (e) {}
-  }
-
-  // Fallback to fetch
-  try {
-    const response = await fetch(url, {
+  if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+    const blob = new Blob([payload], { type: 'application/json' });
+    navigator.sendBeacon(BIDFLOW_API, blob);
+  } else if (typeof fetch !== 'undefined') {
+    fetch(BIDFLOW_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      mode: 'cors',
-      credentials: 'omit',
-      body: payload
-    });
-  } catch (error) {}
+      body: payload,
+      keepalive: true,
+      mode: 'cors'
+    }).catch(() => {});
+  }
 };
 
 // Simplified Scroll Depth Tracking - Using unified metrics
