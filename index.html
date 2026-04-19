@@ -100,7 +100,8 @@
         totalVideoTime: 0,
         maxScroll: 0,
         videoElement: null,
-        lang: 'en'
+        lang: 'en',
+        lastPos: -1
       };
     
       function track(eventName, properties = {}) {
@@ -133,12 +134,12 @@
           utm_campaign: getParam('utm_campaign') || "",
           utm_medium: getParam('utm_medium') || "",
           
-          // 3. Engagement Metrics
+          // 3. Engagement Metrics - Force numeric and never overwrite with 0 if we have a value
           session_duration: SESSION_DURATION,
-          scroll: Math.max(window.bidflow_metrics.maxScroll, properties.scroll || 0),
-          scroll_depth: Math.max(window.bidflow_metrics.maxScroll, properties.scroll_depth || 0),
-          video_duration: Math.max(Math.round(liveVideoTime), properties.video_duration || 0),
-          video_watch_time: Math.max(Math.round(liveVideoTime), properties.video_watch_time || 0),
+          scroll: Math.max(Number(window.bidflow_metrics.maxScroll), Number(properties.scroll || 0)),
+          scroll_depth: Math.max(Number(window.bidflow_metrics.maxScroll), Number(properties.scroll_depth || 0)),
+          video_duration: Math.max(Math.round(liveVideoTime), Number(properties.video_duration || 0)),
+          video_watch_time: Math.max(Math.round(liveVideoTime), Number(properties.video_watch_time || 0)),
           
           // 4. Environment & Context
           device: window.innerWidth < 768 ? 'Mobile' : 'Desktop',
@@ -155,7 +156,7 @@
           session_id: getSessionId(),
           properties: {
             ...calculatedProperties,
-            ...properties // Explicit properties still take precedence if provided manually
+            ...properties // Explicit properties still take precedence, but metrics are protected by Math.max above
           }
         };
         
@@ -208,9 +209,9 @@
         if (window.videoHeartbeatStarted) return;
         window.videoHeartbeatStarted = true;
         
-        console.log('Bidflow: Starting global video monitor v2.1');
+        console.log('Bidflow: Starting global video monitor v2.2 (High-Frequency Autoplay Guard)');
         
-        // Layer 1: Second-by-second heartbeat
+        // Layer 1: High-frequency heartbeat (500ms) to catch quick interactions and autoplay
         setInterval(() => {
           const video = document.querySelector('video');
           if (!video) {
@@ -220,9 +221,15 @@
           
           if (window.bidflow_metrics.videoElement !== video) {
             window.bidflow_metrics.videoElement = video;
+            console.log('Bidflow: Tracking video element');
           }
 
-          if (video && !video.paused && !video.seeking && video.readyState >= 2) {
+          // More aggressive check: Is it not paused AND is the time actually moving?
+          const currentPos = video.currentTime;
+          const isMoving = window.bidflow_metrics.lastPos !== currentPos;
+          window.bidflow_metrics.lastPos = currentPos;
+
+          if (video && !video.paused && !video.seeking && (isMoving || video.readyState >= 2)) {
             if (window.bidflow_metrics.videoStartTime === 0) {
               window.bidflow_metrics.videoStartTime = Date.now();
             } else {
@@ -234,15 +241,15 @@
           } else {
             flushVideoTime();
           }
-        }, 1000);
+        }, 500);
 
-        // Layer 2: Periodic Pings (Every 15s) - Ensures data is sent even if browser crashes
+        // Layer 2: Periodic Pings (Every 15s)
         setInterval(() => {
           const totalVideo = Math.round(window.bidflow_metrics.totalVideoTime);
-          if (totalVideo > 0 && window.bidflow_metrics.videoStartTime > 0) {
+          if (totalVideo > 0) {
             track('video_ping', { 
               video_duration: totalVideo,
-              active_watching: true
+              active_watching: window.bidflow_metrics.videoStartTime > 0
             });
           }
         }, 15000);
@@ -280,13 +287,13 @@
         });
       }
     
-      // Auto-track page view
-      track('script_initialized', { version: '2.1' });
-      track('page_view_landing');
-      
-      // Initialize systems
+      // Initialize systems BEFORE first track if possible (but heartbeat needs DOM)
       startGlobalVideoHeartbeat();
       initScrollTracking();
+
+      // Auto-track page view after systems start
+      track('script_initialized', { version: '2.2' });
+      track('page_view_landing');
 
       // Final stats on page leave - Consolidated
       window.addEventListener('beforeunload', () => {
