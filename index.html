@@ -203,33 +203,25 @@
         return 'Organic_Referral';
       }
     
-      // Video Tracking - Single global heartbeat for reliability
+      // Video Tracking - Multi-layer tracking for maximum reliability
       function startGlobalVideoHeartbeat() {
         if (window.videoHeartbeatStarted) return;
         window.videoHeartbeatStarted = true;
         
-        console.log('Bidflow: Starting global video heartbeat monitor');
+        console.log('Bidflow: Starting global video monitor v2.1');
         
+        // Layer 1: Second-by-second heartbeat
         setInterval(() => {
-          // Find the active video element (if any)
           const video = document.querySelector('video');
-          
           if (!video) {
-            // Flush any current watch time if video disappeared
-            if (window.bidflow_metrics.videoStartTime > 0) {
-              window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
-              window.bidflow_metrics.videoStartTime = 0;
-            }
+            flushVideoTime();
             return;
           }
           
-          // Detect if video element changed (React re-render)
           if (window.bidflow_metrics.videoElement !== video) {
             window.bidflow_metrics.videoElement = video;
-            console.log('Bidflow: Video element detected/changed');
           }
 
-          // Check if video is actually playing
           if (video && !video.paused && !video.seeking && video.readyState >= 2) {
             if (window.bidflow_metrics.videoStartTime === 0) {
               window.bidflow_metrics.videoStartTime = Date.now();
@@ -238,19 +230,40 @@
               const delta = (now - window.bidflow_metrics.videoStartTime) / 1000;
               window.bidflow_metrics.totalVideoTime += delta;
               window.bidflow_metrics.videoStartTime = now;
-              
-              // Periodic heart-beat log for debugging (every 5 seconds of watching)
-              if (Math.floor(window.bidflow_metrics.totalVideoTime) % 5 === 0 && delta > 0) {
-                 console.log(`Bidflow: Watch time progress: ${Math.round(window.bidflow_metrics.totalVideoTime)}s`);
-              }
             }
           } else {
-            if (window.bidflow_metrics.videoStartTime > 0) {
-              window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
-              window.bidflow_metrics.videoStartTime = 0;
-            }
+            flushVideoTime();
           }
         }, 1000);
+
+        // Layer 2: Periodic Pings (Every 15s) - Ensures data is sent even if browser crashes
+        setInterval(() => {
+          const totalVideo = Math.round(window.bidflow_metrics.totalVideoTime);
+          if (totalVideo > 0 && window.bidflow_metrics.videoStartTime > 0) {
+            track('video_ping', { 
+              video_duration: totalVideo,
+              active_watching: true
+            });
+          }
+        }, 15000);
+
+        // Layer 3: Visibility Change (Flush when tab hidden)
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            flushVideoTime();
+            const totalVideo = Math.round(window.bidflow_metrics.totalVideoTime);
+            if (totalVideo > 0) {
+              track('video_tab_hidden', { video_duration: totalVideo });
+            }
+          }
+        });
+
+        function flushVideoTime() {
+          if (window.bidflow_metrics.videoStartTime > 0) {
+            window.bidflow_metrics.totalVideoTime += (Date.now() - window.bidflow_metrics.videoStartTime) / 1000;
+            window.bidflow_metrics.videoStartTime = 0;
+          }
+        }
       }
     
       // Scroll Tracking
@@ -268,7 +281,7 @@
       }
     
       // Auto-track page view
-      track('script_initialized', { version: '2.0' });
+      track('script_initialized', { version: '2.1' });
       track('page_view_landing');
       
       // Initialize systems
