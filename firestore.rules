@@ -41,8 +41,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "Yer.Markosyan@gmail.com" && request.auth.token.email_verified == true));
+        (exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email in ["Yer.Markosyan@gmail.com", "anechka.akpoyan95@gmail.com", "shintender.am@gmail.com"]);
     }
 
     function isValidEmail(email) {
@@ -56,6 +57,13 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /admins/{adminEmail} {
+      // Allow creation only if the creator is already an admin
+      // OR allow if the document being created is one of the bootstrap admins
+      allow create: if (isAdmin()) || (adminEmail in ["anechka.akpoyan95@gmail.com", "shintender.am@gmail.com"]);
+      allow read, update, delete: if isAdmin();
+    }
 
     match /events/{eventId} {
       allow create: if 

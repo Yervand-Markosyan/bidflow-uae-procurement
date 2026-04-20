@@ -50,6 +50,18 @@
         "buyers": { "type": "number" },
         "suppliers": { "type": "number" }
       }
+    },
+    "Admin": {
+      "title": "Administrator Account",
+      "description": "Internal account for administrative access.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "password": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "password", "role", "updatedAt"]
     }
   },
   "firestore": {
@@ -64,6 +76,10 @@
     "stats/counters": {
       "schema": "Counter",
       "description": "Global counters for the landing page."
+    },
+    "admins": {
+      "schema": "Admin",
+      "description": "List of administrative accounts."
     }
   }
 }

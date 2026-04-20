@@ -394,7 +394,41 @@ export const initializeCounters = async () => {
     }, { merge: true });
     
     console.log(`Counters reconciled: Buyers=${actualBuyers}, Suppliers=${actualSuppliers}`);
+    
+    // Seed Administrators as requested
+    await seedAdministrators();
   } catch (error) {
     console.error('Failed to reconcile counters:', error);
+  }
+};
+
+export const seedAdministrators = async () => {
+  try {
+    const admins = [
+      {
+        email: "anechka.akpoyan95@gmail.com",
+        password: "bidflow2025",
+        role: "ADMIN",
+        updatedAt: new Date().toISOString()
+      },
+      {
+        email: "shintender.am@gmail.com",
+        password: "bidflow2025",
+        role: "ADMIN",
+        updatedAt: new Date().toISOString()
+      }
+    ];
+
+    for (const admin of admins) {
+      const adminRef = doc(db, 'admins', admin.email);
+      const adminDoc = await getDoc(adminRef);
+      
+      if (!adminDoc.exists()) {
+        await setDoc(adminRef, admin);
+        console.log(`Admin account created: ${admin.email}`);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to seed administrators:', error);
   }
 };
