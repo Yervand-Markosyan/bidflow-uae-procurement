@@ -387,14 +387,21 @@ export const initializeCounters = async () => {
     
     const actualBuyers = buyersSnap.data().count;
     const actualSuppliers = suppliersSnap.data().count;
+    const totalActual = actualBuyers + actualSuppliers;
+
+    // We can also double check total without roles to be safe
+    const totalQuery = query(collection(db, 'users'));
+    const totalSnap = await getCountFromServer(totalQuery);
+    const absoluteTotal = totalSnap.data().count;
 
     await setDoc(counterRef, {
       buyers: actualBuyers,
       suppliers: actualSuppliers,
+      total: absoluteTotal,
       lastReconciled: serverTimestamp()
     }, { merge: true });
     
-    console.log(`Counters reconciled: Buyers=${actualBuyers}, Suppliers=${actualSuppliers}`);
+    console.log(`Counters reconciled: Buyers=${actualBuyers}, Suppliers=${actualSuppliers}, Total=${absoluteTotal}`);
   } catch (error) {
     // We expect this to fail for regular visitors who are not admins
     console.log('Counter reconciliation skipped (expected for non-admins)');
