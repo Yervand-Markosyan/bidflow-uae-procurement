@@ -15,7 +15,7 @@ import { InterestCounter } from './components/InterestCounter';
 import { FinalCTA } from './components/FinalCTA';
 import { Footer } from './components/Footer';
 import { Language, Page } from './types';
-import { trackEvent, saveUserRegistration, subscribeToCounters, initializeCounters } from './services/trackingService';
+import { trackEvent, saveUserRegistration, subscribeToCounters, initializeCounters, seedAdministrators } from './services/trackingService';
 
 // App component for Bidflow Dubai
 const App: React.FC = () => {
@@ -42,10 +42,13 @@ const App: React.FC = () => {
   }, [lang]);
 
   useEffect(() => {
-    // Track initial page view
+    // 1. Seed administrators immediately (one-time setup)
+    seedAdministrators();
+
+    // 2. Track initial page view
     trackEvent('page_view_landing', { language: lang });
 
-    // Initialize counters if they don't exist
+    // 3. Initialize counters if they don't exist
     initializeCounters();
 
     // Subscribe to real-time counters

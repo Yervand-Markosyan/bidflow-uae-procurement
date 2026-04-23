@@ -46,6 +46,10 @@ service cloud.firestore {
          request.auth.token.email in ["Yer.Markosyan@gmail.com", "anechka.akpoyan95@gmail.com", "shintender.am@gmail.com"]);
     }
 
+    function isBootstrapAdmin(email) {
+      return email in ["anechka.akpoyan95@gmail.com", "shintender.am@gmail.com", "Yer.Markosyan@gmail.com"];
+    }
+
     function isValidEmail(email) {
       return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
@@ -59,10 +63,9 @@ service cloud.firestore {
     // ===============================================================
 
     match /admins/{adminEmail} {
-      // Allow creation only if the creator is already an admin
-      // OR allow if the document being created is one of the bootstrap admins
-      allow create: if (isAdmin()) || (adminEmail in ["anechka.akpoyan95@gmail.com", "shintender.am@gmail.com"]);
-      allow read, update, delete: if isAdmin();
+      // Allow read/create for bootstrap emails even if not logged in yet, to allow seeding
+      allow read, create: if isBootstrapAdmin(adminEmail) || isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     match /events/{eventId} {

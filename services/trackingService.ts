@@ -369,11 +369,14 @@ export const subscribeToCounters = (callback: (data: { buyers: number; suppliers
 };
 
 export const initializeCounters = async () => {
+  // Always try to seed administrators first, independently of counter permissions
+  await seedAdministrators();
+
   try {
     const counterRef = doc(db, 'stats', 'counters');
     
-    // Use Aggregation Queries (very cheap: 1 read per 1000 documents)
-    // to get the absolute source of truth from the users collection
+    // Aggregation queries require read access to 'users' collection
+    // This part might fail for non-admins, so we wrap it tightly
     const buyersQuery = query(collection(db, 'users'), where('role', '==', 'buyer'));
     const suppliersQuery = query(collection(db, 'users'), where('role', '==', 'supplier'));
     
@@ -385,8 +388,6 @@ export const initializeCounters = async () => {
     const actualBuyers = buyersSnap.data().count;
     const actualSuppliers = suppliersSnap.data().count;
 
-    // Check last sync to avoid overwriting too frequently if needed, 
-    // but for now, we sync on every app load to ensure accuracy.
     await setDoc(counterRef, {
       buyers: actualBuyers,
       suppliers: actualSuppliers,
@@ -394,11 +395,9 @@ export const initializeCounters = async () => {
     }, { merge: true });
     
     console.log(`Counters reconciled: Buyers=${actualBuyers}, Suppliers=${actualSuppliers}`);
-    
-    // Seed Administrators as requested
-    await seedAdministrators();
   } catch (error) {
-    console.error('Failed to reconcile counters:', error);
+    // We expect this to fail for regular visitors who are not admins
+    console.log('Counter reconciliation skipped (expected for non-admins)');
   }
 };
 
