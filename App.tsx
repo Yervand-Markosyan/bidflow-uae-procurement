@@ -34,8 +34,9 @@ const App: React.FC = () => {
   }, [lang]);
   
   // Real-time counts from Firebase
-  const [buyersCount, setBuyersCount] = useState(0); // Start from 0 as requested
+  const [buyersCount, setBuyersCount] = useState(0); 
   const [suppliersCount, setSuppliersCount] = useState(0);
+  const [totalParticipants, setTotalParticipants] = useState(0);
 
   useEffect(() => {
     document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -53,8 +54,13 @@ const App: React.FC = () => {
 
     // Subscribe to real-time counters
     const unsubscribe = subscribeToCounters((data) => {
-      if (data.buyers) setBuyersCount(data.buyers);
-      if (data.suppliers) setSuppliersCount(data.suppliers);
+      if (data.buyers !== undefined) setBuyersCount(data.buyers);
+      if (data.suppliers !== undefined) setSuppliersCount(data.suppliers);
+      if (data.total !== undefined) {
+        setTotalParticipants(data.total);
+      } else {
+        setTotalParticipants(data.buyers + data.suppliers);
+      }
     });
 
     return () => unsubscribe();
@@ -136,7 +142,8 @@ const App: React.FC = () => {
         <InterestCounter 
           lang={lang} 
           buyersCount={buyersCount} 
-          suppliersCount={suppliersCount} 
+          suppliersCount={suppliersCount}
+          totalCount={totalParticipants} 
         />
         
         <FinalCTA 

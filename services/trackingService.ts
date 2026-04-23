@@ -339,13 +339,15 @@ export const saveUserRegistration = async (userData: any) => {
     
     try {
       await updateDoc(counterRef, {
-        [roleKey]: increment(1)
+        [roleKey]: increment(1),
+        total: increment(1)
       });
     } catch (e) {
-      // If document doesn't exist, create it with 1
+      // If document doesn't exist, create it
       await setDoc(counterRef, {
         buyers: userData.role === 'buyer' ? 1 : 0,
-        suppliers: userData.role === 'supplier' ? 1 : 0
+        suppliers: userData.role === 'supplier' ? 1 : 0,
+        total: 1
       }, { merge: true });
     }
 
@@ -357,11 +359,11 @@ export const saveUserRegistration = async (userData: any) => {
   }
 };
 
-export const subscribeToCounters = (callback: (data: { buyers: number; suppliers: number }) => void) => {
+export const subscribeToCounters = (callback: (data: { buyers: number; suppliers: number; total?: number }) => void) => {
   const counterRef = doc(db, 'stats', 'counters');
   return onSnapshot(counterRef, (snapshot) => {
     if (snapshot.exists()) {
-      callback(snapshot.data() as { buyers: number; suppliers: number });
+      callback(snapshot.data() as { buyers: number; suppliers: number; total?: number });
     }
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'stats/counters');

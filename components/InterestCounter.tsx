@@ -7,10 +7,11 @@ interface InterestCounterProps {
   lang: Language;
   buyersCount: number;
   suppliersCount: number;
+  totalCount?: number;
 }
 
-export const InterestCounter: React.FC<InterestCounterProps> = ({ lang, buyersCount, suppliersCount }) => {
-  const total = buyersCount + suppliersCount;
+export const InterestCounter: React.FC<InterestCounterProps> = ({ lang, buyersCount, suppliersCount, totalCount }) => {
+  const total = totalCount || (buyersCount + suppliersCount);
   const goal = 500;
   const progress = Math.min((total / goal) * 100, 100);
 
